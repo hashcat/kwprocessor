@@ -4,7 +4,7 @@ Advanced keyboard-walk generator with configureable basechars, keymap and routes
 
 ## License
 
-**kwprocessor** is licensed under the MIT license. Refer to [docs/license.txt](docs/license.txt) for more information. 
+**kwprocessor** is licensed under the MIT license. Refer to [doc/license.txt](doc/license.txt) for more information. 
 
 ## Background
 
