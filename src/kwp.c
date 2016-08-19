@@ -38,7 +38,6 @@
 
 #define RC_OK              0
 #define RC_INVALID         -1
-#define RC_EXHAUSTED       -2
 
 #define ROUTE_LENGTH_MIN   1
 #define ROUTE_LENGTH_MAX   32
@@ -373,9 +372,9 @@ int parse_keymap_file (FILE *fp, int *keymap_basic, int *keymap_shift, int *keym
 
     for (size_t line_pos = 0; line_pos < line_len; line_pos++)
     {
-      char c = line_buf[line_pos];
+      unsigned char c = line_buf[line_pos];
 
-      if (c == ' ') c = RC_INVALID;
+      if (c == ' ') continue;
 
       keymap_basic[((i + 1) * KEYMAP_WIDTH) + (line_pos + 1)] = c;
     }
@@ -393,9 +392,9 @@ int parse_keymap_file (FILE *fp, int *keymap_basic, int *keymap_shift, int *keym
 
     for (size_t line_pos = 0; line_pos < line_len; line_pos++)
     {
-      char c = line_buf[line_pos];
+      unsigned char c = line_buf[line_pos];
 
-      if (c == ' ') c = RC_INVALID;
+      if (c == ' ') continue;
 
       keymap_shift[((i + 1) * KEYMAP_WIDTH) + (line_pos + 1)] = c;
     }
@@ -413,9 +412,9 @@ int parse_keymap_file (FILE *fp, int *keymap_basic, int *keymap_shift, int *keym
 
     for (size_t line_pos = 0; line_pos < line_len; line_pos++)
     {
-      char c = line_buf[line_pos];
+      unsigned char c = line_buf[line_pos];
 
-      if (c == ' ') c = RC_INVALID;
+      if (c == ' ') continue;
 
       keymap_altgr[((i + 1) * KEYMAP_WIDTH) + (line_pos + 1)] = c;
     }
@@ -436,8 +435,8 @@ int parse_basechars_file (FILE *fp, char *basechars_buf, int *basechars_int)
 
   const size_t line_len = strlen (line_buf);
 
-  if (line_len <  1) return -1;
-  if (line_len > 94) return -1;
+  if (line_len <   1) return -1;
+  if (line_len > 256) return -1;
 
   memcpy (basechars_buf, line_buf, line_len);
 
@@ -678,7 +677,7 @@ int main (int argc, char *argv[])
 
   int basechars_cnt = 0;
 
-  char *basechars_buf = (char *) malloc (128);
+  char *basechars_buf = (char *) malloc (256);
 
   FILE *fp = fopen (basechar_file, "r");
 
