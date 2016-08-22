@@ -51,24 +51,24 @@
 #define ROUTE_REPEAT_MIN      1
 #define ROUTE_REPEAT_MAX      16
 
-#define KEYBOARD_BASIC        1
-#define KEYBOARD_SHIFT        0
-#define KEYBOARD_ALTGR        0
-#define KEYBOARD_ALL          0
+#define USER_MOD_BASIC        1
+#define USER_MOD_SHIFT        0
+#define USER_MOD_ALTGR        0
+#define USER_MOD_ALL          0
 
-#define KEYWALK_SOUTH_WEST    0
-#define KEYWALK_SOUTH         1
-#define KEYWALK_SOUTH_EAST    0
-#define KEYWALK_WEST          1
-#define KEYWALK_REPEAT        0
-#define KEYWALK_EAST          1
-#define KEYWALK_NORTH_WEST    0
-#define KEYWALK_NORTH         1
-#define KEYWALK_NORTH_EAST    0
-#define KEYWALK_ALL           0
+#define USER_DIR_SOUTH_WEST   0
+#define USER_DIR_SOUTH        1
+#define USER_DIR_SOUTH_EAST   0
+#define USER_DIR_WEST         1
+#define USER_DIR_REPEAT       0
+#define USER_DIR_EAST         1
+#define USER_DIR_NORTH_WEST   0
+#define USER_DIR_NORTH        1
+#define USER_DIR_NORTH_EAST   0
+#define USER_DIR_ALL          0
 
-#define KEYWALK_DISTANCE_MIN  1
-#define KEYWALK_DISTANCE_MAX  1
+#define USER_DIST_MIN         1
+#define USER_DIST_MAX         1
 
 // types
 
@@ -291,20 +291,20 @@ int chr_to_co (const int keymap[KEYMAP_WIDTH][KEYMAP_HEIGHT], const int chr, co_
   return RC_INVALID;
 }
 
-void add_keymap_to_map (int *map, const int keymap[KEYMAP_WIDTH][KEYMAP_HEIGHT], const co_t *co, const int distance, const int keywalk_south_west, const int keywalk_south, const int keywalk_south_east, const int keywalk_west, const int keywalk_repeat, const int keywalk_east, const int keywalk_north_west, const int keywalk_north, const int keywalk_north_east)
+void add_keymap_to_map (int *map, const int keymap[KEYMAP_WIDTH][KEYMAP_HEIGHT], const co_t *co, const int distance, const int user_dir_south_west, const int user_dir_south, const int user_dir_south_east, const int user_dir_west, const int user_dir_repeat, const int user_dir_east, const int user_dir_north_west, const int user_dir_north, const int user_dir_north_east)
 {
-  if (keywalk_south_west == 1) map[DIR_SOUTH_WEST] = co_to_chr (keymap, co->x - distance, co->y + distance);
-  if (keywalk_south      == 1) map[DIR_SOUTH]      = co_to_chr (keymap, co->x           , co->y + distance);
-  if (keywalk_south_east == 1) map[DIR_SOUTH_EAST] = co_to_chr (keymap, co->x + distance, co->y + distance);
-  if (keywalk_west       == 1) map[DIR_WEST]       = co_to_chr (keymap, co->x - distance, co->y           );
-  if (keywalk_repeat     == 1) map[DIR_REPEAT]     = co_to_chr (keymap, co->x           , co->y           );
-  if (keywalk_east       == 1) map[DIR_EAST]       = co_to_chr (keymap, co->x + distance, co->y           );
-  if (keywalk_north_west == 1) map[DIR_NORTH_WEST] = co_to_chr (keymap, co->x - distance, co->y - distance);
-  if (keywalk_north      == 1) map[DIR_NORTH]      = co_to_chr (keymap, co->x           , co->y - distance);
-  if (keywalk_north_east == 1) map[DIR_NORTH_EAST] = co_to_chr (keymap, co->x + distance, co->y - distance);
+  if (user_dir_south_west == 1) map[DIR_SOUTH_WEST] = co_to_chr (keymap, co->x - distance, co->y + distance);
+  if (user_dir_south      == 1) map[DIR_SOUTH]      = co_to_chr (keymap, co->x           , co->y + distance);
+  if (user_dir_south_east == 1) map[DIR_SOUTH_EAST] = co_to_chr (keymap, co->x + distance, co->y + distance);
+  if (user_dir_west       == 1) map[DIR_WEST]       = co_to_chr (keymap, co->x - distance, co->y           );
+  if (user_dir_repeat     == 1) map[DIR_REPEAT]     = co_to_chr (keymap, co->x           , co->y           );
+  if (user_dir_east       == 1) map[DIR_EAST]       = co_to_chr (keymap, co->x + distance, co->y           );
+  if (user_dir_north_west == 1) map[DIR_NORTH_WEST] = co_to_chr (keymap, co->x - distance, co->y - distance);
+  if (user_dir_north      == 1) map[DIR_NORTH]      = co_to_chr (keymap, co->x           , co->y - distance);
+  if (user_dir_north_east == 1) map[DIR_NORTH_EAST] = co_to_chr (keymap, co->x + distance, co->y - distance);
 }
 
-void setup_cs (cs_t *cs, const int c, const int keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGHT], const int keymap_shift[KEYMAP_WIDTH][KEYMAP_HEIGHT], const int keymap_altgr[KEYMAP_WIDTH][KEYMAP_HEIGHT], const int keyboard_basic, const int keyboard_shift, const int keyboard_altgr, const int keywalk_south_west, const int keywalk_south, const int keywalk_south_east, const int keywalk_west, const int keywalk_repeat, const int keywalk_east, const int keywalk_north_west, const int keywalk_north, const int keywalk_north_east, const int keywalk_distance_min, const int keywalk_distance_max)
+void setup_cs (cs_t *cs, const int c, const int keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGHT], const int keymap_shift[KEYMAP_WIDTH][KEYMAP_HEIGHT], const int keymap_altgr[KEYMAP_WIDTH][KEYMAP_HEIGHT], const int user_mod_basic, const int user_mod_shift, const int user_mod_altgr, const int user_dir_south_west, const int user_dir_south, const int user_dir_south_east, const int user_dir_west, const int user_dir_repeat, const int user_dir_east, const int user_dir_north_west, const int user_dir_north, const int user_dir_north_east, const int user_dist_min, const int user_dist_max)
 {
   for (int i = 0; i < DIST_CNT; i++)
   {
@@ -331,11 +331,11 @@ void setup_cs (cs_t *cs, const int c, const int keymap_basic[KEYMAP_WIDTH][KEYMA
 
   if (rc == RC_INVALID) return;
 
-  for (int distance = keywalk_distance_min; distance <= keywalk_distance_max; distance++)
+  for (int distance = user_dist_min; distance <= user_dist_max; distance++)
   {
-    if (keyboard_basic == 1) add_keymap_to_map (cs->map[distance][MOD_BASIC], keymap_basic, &co, distance + 1, keywalk_south_west, keywalk_south, keywalk_south_east, keywalk_west, keywalk_repeat, keywalk_east, keywalk_north_west, keywalk_north, keywalk_north_east);
-    if (keyboard_shift == 1) add_keymap_to_map (cs->map[distance][MOD_SHIFT], keymap_shift, &co, distance + 1, keywalk_south_west, keywalk_south, keywalk_south_east, keywalk_west, keywalk_repeat, keywalk_east, keywalk_north_west, keywalk_north, keywalk_north_east);
-    if (keyboard_altgr == 1) add_keymap_to_map (cs->map[distance][MOD_ALTGR], keymap_altgr, &co, distance + 1, keywalk_south_west, keywalk_south, keywalk_south_east, keywalk_west, keywalk_repeat, keywalk_east, keywalk_north_west, keywalk_north, keywalk_north_east);
+    if (user_mod_basic == 1) add_keymap_to_map (cs->map[distance - 1][MOD_BASIC], keymap_basic, &co, distance, user_dir_south_west, user_dir_south, user_dir_south_east, user_dir_west, user_dir_repeat, user_dir_east, user_dir_north_west, user_dir_north, user_dir_north_east);
+    if (user_mod_shift == 1) add_keymap_to_map (cs->map[distance - 1][MOD_SHIFT], keymap_shift, &co, distance, user_dir_south_west, user_dir_south, user_dir_south_east, user_dir_west, user_dir_repeat, user_dir_east, user_dir_north_west, user_dir_north, user_dir_north_east);
+    if (user_mod_altgr == 1) add_keymap_to_map (cs->map[distance - 1][MOD_ALTGR], keymap_altgr, &co, distance, user_dir_south_west, user_dir_south, user_dir_south_east, user_dir_west, user_dir_repeat, user_dir_east, user_dir_north_west, user_dir_north, user_dir_north_east);
   }
 }
 
@@ -437,29 +437,42 @@ int parse_keymap_file (FILE *fp, int keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGHT], 
 
   free (tmp);
 
-  return 0;
+  return RC_OK;
 }
 
-int parse_basechars_file (FILE *fp, unsigned char *basechars_buf, int *basechars_cnt)
+int parse_basechars_file (FILE *fp, unsigned char *basechars_buf, int *basechars_cnt, const cs_t *css, const int user_mod_basic, const int user_mod_shift, const int user_mod_altgr)
 {
   char *tmp = (char *) malloc (BUFSIZ);
 
   char *line_buf = fgetl (fp, tmp, BUFSIZ);
 
-  if (line_buf == NULL) return -1;
+  if (line_buf == NULL) return RC_INVALID;
+
+  int basechars_tmp = 0;
 
   const size_t line_len = strlen (line_buf);
 
-  if (line_len <   1) return -1;
-  if (line_len > 256) return -1;
+  if (line_len <   1) return RC_INVALID;
+  if (line_len > 255) return RC_INVALID;
 
-  memcpy (basechars_buf, line_buf, line_len);
+  for (size_t line_pos = 0; line_pos < line_len; line_pos++)
+  {
+    unsigned char c = (unsigned char) line_buf[line_pos];
 
-  *basechars_cnt = line_len;
+    if ((user_mod_basic == 0) && (css[c].is_basic == 1)) continue;
+    if ((user_mod_shift == 0) && (css[c].is_shift == 1)) continue;
+    if ((user_mod_altgr == 0) && (css[c].is_altgr == 1)) continue;
+
+    basechars_buf[basechars_tmp] = c;
+
+    basechars_tmp++;
+  }
+
+  *basechars_cnt = basechars_tmp;
 
   free (tmp);
 
-  return 0;
+  return RC_OK;
 }
 
 int parse_routes_file (FILE *fp, route_t *routes_buf)
@@ -558,67 +571,67 @@ int main (int argc, char *argv[])
 {
   /* usage */
 
-  int   version              = 0;
-  int   usage                = 0;
-  char *output_file          = NULL;
-  int   keyboard_basic       = KEYBOARD_BASIC;
-  int   keyboard_shift       = KEYBOARD_SHIFT;
-  int   keyboard_altgr       = KEYBOARD_ALTGR;
-  int   keyboard_all         = KEYBOARD_ALL;
-  int   keywalk_south_west   = KEYWALK_SOUTH_WEST;
-  int   keywalk_south        = KEYWALK_SOUTH;
-  int   keywalk_south_east   = KEYWALK_SOUTH_EAST;
-  int   keywalk_west         = KEYWALK_WEST;
-  int   keywalk_repeat       = KEYWALK_REPEAT;
-  int   keywalk_east         = KEYWALK_EAST;
-  int   keywalk_north_west   = KEYWALK_NORTH_WEST;
-  int   keywalk_north        = KEYWALK_NORTH;
-  int   keywalk_north_east   = KEYWALK_NORTH_EAST;
-  int   keywalk_all          = KEYWALK_ALL;
-  int   keywalk_distance_min = KEYWALK_DISTANCE_MIN;
-  int   keywalk_distance_max = KEYWALK_DISTANCE_MAX;
+  int   version               = 0;
+  int   usage                 = 0;
+  char *output_file           = NULL;
+  int   user_mod_basic       = USER_MOD_BASIC;
+  int   user_mod_shift       = USER_MOD_SHIFT;
+  int   user_mod_altgr       = USER_MOD_ALTGR;
+  int   user_mod_all         = USER_MOD_ALL;
+  int   user_dir_south_west  = USER_DIR_SOUTH_WEST;
+  int   user_dir_south       = USER_DIR_SOUTH;
+  int   user_dir_south_east  = USER_DIR_SOUTH_EAST;
+  int   user_dir_west        = USER_DIR_WEST;
+  int   user_dir_repeat      = USER_DIR_REPEAT;
+  int   user_dir_east        = USER_DIR_EAST;
+  int   user_dir_north_west  = USER_DIR_NORTH_WEST;
+  int   user_dir_north       = USER_DIR_NORTH;
+  int   user_dir_north_east  = USER_DIR_NORTH_EAST;
+  int   user_dir_all         = USER_DIR_ALL;
+  int   user_dist_min        = USER_DIST_MIN;
+  int   user_dist_max        = USER_DIST_MAX;
 
   #define IDX_VERSION              'V'
   #define IDX_USAGE                'h'
   #define IDX_OUTPUT_FILE          'o'
-  #define IDX_KEYBOARD_BASIC       'b'
-  #define IDX_KEYBOARD_SHIFT       's'
-  #define IDX_KEYBOARD_ALTGR       'a'
-  #define IDX_KEYBOARD_ALL         'z'
-  #define IDX_KEYWALK_SOUTH_WEST   '1'
-  #define IDX_KEYWALK_SOUTH        '2'
-  #define IDX_KEYWALK_SOUTH_EAST   '3'
-  #define IDX_KEYWALK_WEST         '4'
-  #define IDX_KEYWALK_REPEAT       '5'
-  #define IDX_KEYWALK_EAST         '6'
-  #define IDX_KEYWALK_NORTH_WEST   '7'
-  #define IDX_KEYWALK_NORTH        '8'
-  #define IDX_KEYWALK_NORTH_EAST   '9'
-  #define IDX_KEYWALK_ALL          '0'
-  #define IDX_KEYWALK_DISTANCE_MIN 'n'
-  #define IDX_KEYWALK_DISTANCE_MAX 'x'
+  #define IDX_USER_MOD_BASIC       'b'
+  #define IDX_USER_MOD_SHIFT       's'
+  #define IDX_USER_MOD_ALTGR       'a'
+  #define IDX_USER_MOD_ALL         'z'
+  #define IDX_USER_DIR_SOUTH_WEST  '1'
+  #define IDX_USER_DIR_SOUTH       '2'
+  #define IDX_USER_DIR_SOUTH_EAST  '3'
+  #define IDX_USER_DIR_WEST        '4'
+  #define IDX_USER_DIR_REPEAT      '5'
+  #define IDX_USER_DIR_EAST        '6'
+  #define IDX_USER_DIR_NORTH_WEST  '7'
+  #define IDX_USER_DIR_NORTH       '8'
+  #define IDX_USER_DIR_NORTH_EAST  '9'
+  #define IDX_USER_DIR_ALL         '0'
+  #define IDX_USER_DIST_MIN        'n'
+  #define IDX_USER_DIST_MAX        'x'
 
   struct option long_options[] =
   {
     {"version",               no_argument,       0, IDX_VERSION},
     {"help",                  no_argument,       0, IDX_USAGE},
     {"output-file",           required_argument, 0, IDX_OUTPUT_FILE},
-    {"keyboard-basic",        required_argument, 0, IDX_KEYBOARD_BASIC},
-    {"keyboard-shift",        required_argument, 0, IDX_KEYBOARD_SHIFT},
-    {"keyboard-altgr",        required_argument, 0, IDX_KEYBOARD_ALTGR},
-    {"keyboard-all",          no_argument,       0, IDX_KEYBOARD_ALL},
-    {"keywalk-south-west",    required_argument, 0, IDX_KEYWALK_SOUTH_WEST},
-    {"keywalk-south",         required_argument, 0, IDX_KEYWALK_SOUTH},
-    {"keywalk-south-east",    required_argument, 0, IDX_KEYWALK_SOUTH_EAST},
-    {"keywalk-west",          required_argument, 0, IDX_KEYWALK_WEST},
-    {"keywalk-repeat",        required_argument, 0, IDX_KEYWALK_REPEAT},
-    {"keywalk-east",          required_argument, 0, IDX_KEYWALK_EAST},
-    {"keywalk-north-west",    required_argument, 0, IDX_KEYWALK_NORTH_WEST},
-    {"keywalk-north",         required_argument, 0, IDX_KEYWALK_NORTH},
-    {"keywalk-north-east",    required_argument, 0, IDX_KEYWALK_NORTH_EAST},
-    {"keywalk-all",           no_argument,       0, IDX_KEYWALK_ALL},
-    {"keywalk-distance-min",  required_argument, 0, IDX_KEYWALK_DISTANCE_MIN},
-    {"keywalk-distance-max",  required_argument, 0, IDX_KEYWALK_DISTANCE_MAX},
+    {"keyboard-basic",        required_argument, 0, IDX_USER_MOD_BASIC},
+    {"keyboard-shift",        required_argument, 0, IDX_USER_MOD_SHIFT},
+    {"keyboard-altgr",        required_argument, 0, IDX_USER_MOD_ALTGR},
+    {"keyboard-all",          no_argument,       0, IDX_USER_MOD_ALL},
+    {"keywalk-south-west",    required_argument, 0, IDX_USER_DIR_SOUTH_WEST},
+    {"keywalk-south",         required_argument, 0, IDX_USER_DIR_SOUTH},
+    {"keywalk-south-east",    required_argument, 0, IDX_USER_DIR_SOUTH_EAST},
+    {"keywalk-west",          required_argument, 0, IDX_USER_DIR_WEST},
+    {"keywalk-repeat",        required_argument, 0, IDX_USER_DIR_REPEAT},
+    {"keywalk-east",          required_argument, 0, IDX_USER_DIR_EAST},
+    {"keywalk-north-west",    required_argument, 0, IDX_USER_DIR_NORTH_WEST},
+    {"keywalk-north",         required_argument, 0, IDX_USER_DIR_NORTH},
+    {"keywalk-north-east",    required_argument, 0, IDX_USER_DIR_NORTH_EAST},
+    {"keywalk-all",           no_argument,       0, IDX_USER_DIR_ALL},
+    {"keywalk-distance-min",  required_argument, 0, IDX_USER_DIST_MIN},
+    {"keywalk-distance-max",  required_argument, 0, IDX_USER_DIST_MAX},
     {0, 0, 0, 0}
   };
 
@@ -630,25 +643,25 @@ int main (int argc, char *argv[])
   {
     switch (c)
     {
-      case IDX_VERSION:               version               = 1;             break;
-      case IDX_USAGE:                 usage                 = 1;             break;
-      case IDX_OUTPUT_FILE:           output_file           = optarg;        break;
-      case IDX_KEYBOARD_BASIC:        keyboard_basic        = atoi (optarg); break;
-      case IDX_KEYBOARD_SHIFT:        keyboard_shift        = atoi (optarg); break;
-      case IDX_KEYBOARD_ALTGR:        keyboard_altgr        = atoi (optarg); break;
-      case IDX_KEYBOARD_ALL:          keyboard_all          = 1;             break;
-      case IDX_KEYWALK_SOUTH_WEST:    keywalk_south_west    = atoi (optarg); break;
-      case IDX_KEYWALK_SOUTH:         keywalk_south         = atoi (optarg); break;
-      case IDX_KEYWALK_SOUTH_EAST:    keywalk_south_east    = atoi (optarg); break;
-      case IDX_KEYWALK_WEST:          keywalk_west          = atoi (optarg); break;
-      case IDX_KEYWALK_REPEAT:        keywalk_repeat        = atoi (optarg); break;
-      case IDX_KEYWALK_EAST:          keywalk_east          = atoi (optarg); break;
-      case IDX_KEYWALK_NORTH_WEST:    keywalk_north_west    = atoi (optarg); break;
-      case IDX_KEYWALK_NORTH:         keywalk_north         = atoi (optarg); break;
-      case IDX_KEYWALK_NORTH_EAST:    keywalk_north_east    = atoi (optarg); break;
-      case IDX_KEYWALK_ALL:           keywalk_all           = 1;             break;
-      case IDX_KEYWALK_DISTANCE_MIN:  keywalk_distance_min  = atoi (optarg); break;
-      case IDX_KEYWALK_DISTANCE_MAX:  keywalk_distance_max  = atoi (optarg); break;
+      case IDX_VERSION:             version             = 1;             break;
+      case IDX_USAGE:               usage               = 1;             break;
+      case IDX_OUTPUT_FILE:         output_file         = optarg;        break;
+      case IDX_USER_MOD_BASIC:      user_mod_basic      = atoi (optarg); break;
+      case IDX_USER_MOD_SHIFT:      user_mod_shift      = atoi (optarg); break;
+      case IDX_USER_MOD_ALTGR:      user_mod_altgr      = atoi (optarg); break;
+      case IDX_USER_MOD_ALL:        user_mod_all        = 1;             break;
+      case IDX_USER_DIR_SOUTH_WEST: user_dir_south_west = atoi (optarg); break;
+      case IDX_USER_DIR_SOUTH:      user_dir_south      = atoi (optarg); break;
+      case IDX_USER_DIR_SOUTH_EAST: user_dir_south_east = atoi (optarg); break;
+      case IDX_USER_DIR_WEST:       user_dir_west       = atoi (optarg); break;
+      case IDX_USER_DIR_REPEAT:     user_dir_repeat     = atoi (optarg); break;
+      case IDX_USER_DIR_EAST:       user_dir_east       = atoi (optarg); break;
+      case IDX_USER_DIR_NORTH_WEST: user_dir_north_west = atoi (optarg); break;
+      case IDX_USER_DIR_NORTH:      user_dir_north      = atoi (optarg); break;
+      case IDX_USER_DIR_NORTH_EAST: user_dir_north_east = atoi (optarg); break;
+      case IDX_USER_DIR_ALL:        user_dir_all        = 1;             break;
+      case IDX_USER_DIST_MIN:       user_dist_min       = atoi (optarg); break;
+      case IDX_USER_DIST_MAX:       user_dist_max       = atoi (optarg); break;
 
       default: return (-1);
     }
@@ -656,35 +669,35 @@ int main (int argc, char *argv[])
 
   // some sanity checks
 
-  if (keywalk_distance_min < 1)
+  if (user_dist_min < 1)
   {
     fprintf (stderr, "Keywalk distance minimum can not be smaller than than 1\n");
 
     return (-1);
   }
 
-  if (keywalk_distance_max < 1)
+  if (user_dist_max < 1)
   {
     fprintf (stderr, "Keywalk distance maximum can not be smaller than than 1\n");
 
     return (-1);
   }
 
-  if (keywalk_distance_min > DIST_CNT)
+  if (user_dist_min > DIST_CNT)
   {
     fprintf (stderr, "Keywalk distance minimum can not be greater than than %d\n", DIST_CNT);
 
     return (-1);
   }
 
-  if (keywalk_distance_max > DIST_CNT)
+  if (user_dist_max > DIST_CNT)
   {
     fprintf (stderr, "Keywalk distance maximum can not be greater than than %d\n", DIST_CNT);
 
     return (-1);
   }
 
-  if (keywalk_distance_min > keywalk_distance_max)
+  if (user_dist_min > user_dist_max)
   {
     fprintf (stderr, "Keywalk distance minimum can not be greater than maximum\n");
 
@@ -693,24 +706,24 @@ int main (int argc, char *argv[])
 
   // shortcuts always override
 
-  if (keyboard_all)
+  if (user_mod_all)
   {
-    keyboard_basic     = 1;
-    keyboard_shift     = 1;
-    keyboard_altgr     = 1;
+    user_mod_basic      = 1;
+    user_mod_shift      = 1;
+    user_mod_altgr      = 1;
   }
 
-  if (keywalk_all)
+  if (user_dir_all)
   {
-    keywalk_south_west = 1;
-    keywalk_south      = 1;
-    keywalk_south_east = 1;
-    keywalk_west       = 1;
-    keywalk_repeat     = 1;
-    keywalk_east       = 1;
-    keywalk_north_west = 1;
-    keywalk_north      = 1;
-    keywalk_north_east = 1;
+    user_dir_south_west = 1;
+    user_dir_south      = 1;
+    user_dir_south_east = 1;
+    user_dir_west       = 1;
+    user_dir_repeat     = 1;
+    user_dir_east       = 1;
+    user_dir_north_west = 1;
+    user_dir_north      = 1;
+    user_dir_north_east = 1;
   }
 
   // version and usage
@@ -768,43 +781,6 @@ int main (int argc, char *argv[])
   char *keymap_file   = argv[optind + 1];
   char *routes_file   = argv[optind + 2];
 
-  // init basechars
-
-  int basechars_cnt = 0;
-
-  unsigned char *basechars_buf = (unsigned char *) malloc (256);
-
-  FILE *fp = fopen (basechar_file, "r");
-
-  if (fp == NULL)
-  {
-    fprintf (stderr, "%s: %s\n", basechar_file, strerror (errno));
-
-    return -1;
-  }
-
-  const int basechars_pot = count_lines (fp);
-
-  if (basechars_pot != 1)
-  {
-    fprintf (stderr, "Invalid basechars, not exactly 1 line\n");
-
-    return -1;
-  }
-
-  rewind (fp);
-
-  int rc = parse_basechars_file (fp, basechars_buf, &basechars_cnt);
-
-  if (rc == -1)
-  {
-    fprintf (stderr, "%s: Invalid basechars\n", basechar_file);
-
-    return -1;
-  }
-
-  fclose (fp);
-
   // init keymaps
 
   int keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGHT];
@@ -821,7 +797,7 @@ int main (int argc, char *argv[])
     }
   }
 
-  fp = fopen (keymap_file, "r");
+  FILE *fp = fopen (keymap_file, "r");
 
   if (fp == NULL)
   {
@@ -841,7 +817,7 @@ int main (int argc, char *argv[])
 
   rewind (fp);
 
-  rc = parse_keymap_file (fp, keymap_basic, keymap_shift, keymap_altgr);
+  int rc = parse_keymap_file (fp, keymap_basic, keymap_shift, keymap_altgr);
 
   if (rc == -1)
   {
@@ -858,8 +834,45 @@ int main (int argc, char *argv[])
 
   for (int c = 0; c < 256; c++)
   {
-    setup_cs (css + c, c, keymap_basic, keymap_shift, keymap_altgr, keyboard_basic, keyboard_shift, keyboard_altgr, keywalk_south_west, keywalk_south, keywalk_south_east, keywalk_west, keywalk_repeat, keywalk_east, keywalk_north_west, keywalk_north, keywalk_north_east, keywalk_distance_min - 1, keywalk_distance_max - 1);
+    setup_cs (css + c, c, keymap_basic, keymap_shift, keymap_altgr, user_mod_basic, user_mod_shift, user_mod_altgr, user_dir_south_west, user_dir_south, user_dir_south_east, user_dir_west, user_dir_repeat, user_dir_east, user_dir_north_west, user_dir_north, user_dir_north_east, user_dist_min, user_dist_max);
   }
+
+  // init basechars
+
+  int basechars_cnt = 0;
+
+  unsigned char *basechars_buf = (unsigned char *) malloc (256);
+
+  fp = fopen (basechar_file, "r");
+
+  if (fp == NULL)
+  {
+    fprintf (stderr, "%s: %s\n", basechar_file, strerror (errno));
+
+    return -1;
+  }
+
+  const int basechars_pot = count_lines (fp);
+
+  if (basechars_pot != 1)
+  {
+    fprintf (stderr, "Invalid basechars, not exactly 1 line\n");
+
+    return -1;
+  }
+
+  rewind (fp);
+
+  rc = parse_basechars_file (fp, basechars_buf, &basechars_cnt, css, user_mod_basic, user_mod_shift, user_mod_altgr);
+
+  if (rc == -1)
+  {
+    fprintf (stderr, "%s: Invalid basechars\n", basechar_file);
+
+    return -1;
+  }
+
+  fclose (fp);
 
   // init routes
 
@@ -916,10 +929,6 @@ int main (int argc, char *argv[])
       const u64 kd = k / basechars_cnt;
 
       const unsigned int c = basechars_buf[km];
-
-      if ((keyboard_basic == 0) && (css[c].is_basic == 1)) continue;
-      if ((keyboard_shift == 0) && (css[c].is_shift == 1)) continue;
-      if ((keyboard_altgr == 0) && (css[c].is_altgr == 1)) continue;
 
       char pw_buf[100];
 
