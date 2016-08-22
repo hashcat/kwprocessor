@@ -36,7 +36,7 @@
 #define DIR_NORTH_EAST        8
 #define DIR_CNT               9
 
-#define KEYMAP_WIDTH          14
+#define KEYMAP_WIDTH          13
 #define KEYMAP_HEIGHT         4
 #define KEYMAP_ENTRIES        (KEYMAP_WIDTH * KEYMAP_HEIGHT)
 
@@ -440,7 +440,7 @@ int parse_keymap_file (FILE *fp, int keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGHT], 
   return 0;
 }
 
-int parse_basechars_file (FILE *fp, char *basechars_buf, int *basechars_int)
+int parse_basechars_file (FILE *fp, unsigned char *basechars_buf, int *basechars_cnt)
 {
   char *tmp = (char *) malloc (BUFSIZ);
 
@@ -455,7 +455,7 @@ int parse_basechars_file (FILE *fp, char *basechars_buf, int *basechars_int)
 
   memcpy (basechars_buf, line_buf, line_len);
 
-  *basechars_int = line_len;
+  *basechars_cnt = line_len;
 
   free (tmp);
 
@@ -505,7 +505,7 @@ int parse_routes_file (FILE *fp, route_t *routes_buf)
   return routes_cnt;
 }
 
-int process_route (const cs_t *css, const int root, const u64 s, const route_t *route_buf, char *out_buf, int *out_len)
+int process_route (const cs_t *css, const unsigned int root, const u64 s, const route_t *route_buf, char *out_buf, int *out_len)
 {
   int out_pos = 0;
 
@@ -772,7 +772,7 @@ int main (int argc, char *argv[])
 
   int basechars_cnt = 0;
 
-  char *basechars_buf = (char *) malloc (256);
+  unsigned char *basechars_buf = (unsigned char *) malloc (256);
 
   FILE *fp = fopen (basechar_file, "r");
 
@@ -915,7 +915,7 @@ int main (int argc, char *argv[])
       const u64 km = k % basechars_cnt;
       const u64 kd = k / basechars_cnt;
 
-      const int c = basechars_buf[km];
+      const unsigned int c = basechars_buf[km];
 
       if ((keyboard_basic == 0) && (css[c].is_basic == 1)) continue;
       if ((keyboard_shift == 0) && (css[c].is_shift == 1)) continue;
