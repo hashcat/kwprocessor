@@ -18,7 +18,7 @@
 
 #define VERSION_BIN           100
 
-#define DIST_CNT              3 // this can affect performance
+#define DIST_CNT              16
 
 #define MOD_BASIC             0
 #define MOD_SHIFT             1
@@ -39,8 +39,6 @@
 #define KEYMAP_WIDTH          13
 #define KEYMAP_HEIGHT         4
 #define KEYMAP_ENTRIES        (KEYMAP_WIDTH * KEYMAP_HEIGHT)
-
-#define SELECTION_CNT         (DIST_CNT * MOD_CNT * DIR_CNT)
 
 #define RC_OK                 0
 #define RC_INVALID            -1
@@ -291,17 +289,17 @@ int chr_to_co (const int keymap[KEYMAP_WIDTH][KEYMAP_HEIGHT], const int chr, co_
   return RC_INVALID;
 }
 
-void add_keymap_to_map (int *map, const int keymap[KEYMAP_WIDTH][KEYMAP_HEIGHT], const co_t *co, const int distance, const int user_dir_south_west, const int user_dir_south, const int user_dir_south_east, const int user_dir_west, const int user_dir_repeat, const int user_dir_east, const int user_dir_north_west, const int user_dir_north, const int user_dir_north_east)
+void add_keymap_to_map (int *map, const int keymap[KEYMAP_WIDTH][KEYMAP_HEIGHT], const co_t *co, const int user_dist, const int user_dir_south_west, const int user_dir_south, const int user_dir_south_east, const int user_dir_west, const int user_dir_repeat, const int user_dir_east, const int user_dir_north_west, const int user_dir_north, const int user_dir_north_east)
 {
-  if (user_dir_south_west == 1) map[DIR_SOUTH_WEST] = co_to_chr (keymap, co->x - distance, co->y + distance);
-  if (user_dir_south      == 1) map[DIR_SOUTH]      = co_to_chr (keymap, co->x           , co->y + distance);
-  if (user_dir_south_east == 1) map[DIR_SOUTH_EAST] = co_to_chr (keymap, co->x + distance, co->y + distance);
-  if (user_dir_west       == 1) map[DIR_WEST]       = co_to_chr (keymap, co->x - distance, co->y           );
-  if (user_dir_repeat     == 1) map[DIR_REPEAT]     = co_to_chr (keymap, co->x           , co->y           );
-  if (user_dir_east       == 1) map[DIR_EAST]       = co_to_chr (keymap, co->x + distance, co->y           );
-  if (user_dir_north_west == 1) map[DIR_NORTH_WEST] = co_to_chr (keymap, co->x - distance, co->y - distance);
-  if (user_dir_north      == 1) map[DIR_NORTH]      = co_to_chr (keymap, co->x           , co->y - distance);
-  if (user_dir_north_east == 1) map[DIR_NORTH_EAST] = co_to_chr (keymap, co->x + distance, co->y - distance);
+  if (user_dir_south_west == 1) map[DIR_SOUTH_WEST] = co_to_chr (keymap, co->x - user_dist, co->y + user_dist);
+  if (user_dir_south      == 1) map[DIR_SOUTH]      = co_to_chr (keymap, co->x            , co->y + user_dist);
+  if (user_dir_south_east == 1) map[DIR_SOUTH_EAST] = co_to_chr (keymap, co->x + user_dist, co->y + user_dist);
+  if (user_dir_west       == 1) map[DIR_WEST]       = co_to_chr (keymap, co->x - user_dist, co->y            );
+  if (user_dir_repeat     == 1) map[DIR_REPEAT]     = co_to_chr (keymap, co->x            , co->y            );
+  if (user_dir_east       == 1) map[DIR_EAST]       = co_to_chr (keymap, co->x + user_dist, co->y            );
+  if (user_dir_north_west == 1) map[DIR_NORTH_WEST] = co_to_chr (keymap, co->x - user_dist, co->y - user_dist);
+  if (user_dir_north      == 1) map[DIR_NORTH]      = co_to_chr (keymap, co->x            , co->y - user_dist);
+  if (user_dir_north_east == 1) map[DIR_NORTH_EAST] = co_to_chr (keymap, co->x + user_dist, co->y - user_dist);
 }
 
 void setup_cs (cs_t *cs, const int c, const int keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGHT], const int keymap_shift[KEYMAP_WIDTH][KEYMAP_HEIGHT], const int keymap_altgr[KEYMAP_WIDTH][KEYMAP_HEIGHT], const int user_mod_basic, const int user_mod_shift, const int user_mod_altgr, const int user_dir_south_west, const int user_dir_south, const int user_dir_south_east, const int user_dir_west, const int user_dir_repeat, const int user_dir_east, const int user_dir_north_west, const int user_dir_north, const int user_dir_north_east, const int user_dist_min, const int user_dist_max)
@@ -331,11 +329,11 @@ void setup_cs (cs_t *cs, const int c, const int keymap_basic[KEYMAP_WIDTH][KEYMA
 
   if (rc == RC_INVALID) return;
 
-  for (int distance = user_dist_min; distance <= user_dist_max; distance++)
+  for (int user_dist = user_dist_min, dist_pos = 0; user_dist <= user_dist_max; user_dist++, dist_pos++)
   {
-    if (user_mod_basic == 1) add_keymap_to_map (cs->map[distance - 1][MOD_BASIC], keymap_basic, &co, distance, user_dir_south_west, user_dir_south, user_dir_south_east, user_dir_west, user_dir_repeat, user_dir_east, user_dir_north_west, user_dir_north, user_dir_north_east);
-    if (user_mod_shift == 1) add_keymap_to_map (cs->map[distance - 1][MOD_SHIFT], keymap_shift, &co, distance, user_dir_south_west, user_dir_south, user_dir_south_east, user_dir_west, user_dir_repeat, user_dir_east, user_dir_north_west, user_dir_north, user_dir_north_east);
-    if (user_mod_altgr == 1) add_keymap_to_map (cs->map[distance - 1][MOD_ALTGR], keymap_altgr, &co, distance, user_dir_south_west, user_dir_south, user_dir_south_east, user_dir_west, user_dir_repeat, user_dir_east, user_dir_north_west, user_dir_north, user_dir_north_east);
+    if (user_mod_basic == 1) add_keymap_to_map (cs->map[dist_pos][MOD_BASIC], keymap_basic, &co, user_dist, user_dir_south_west, user_dir_south, user_dir_south_east, user_dir_west, user_dir_repeat, user_dir_east, user_dir_north_west, user_dir_north, user_dir_north_east);
+    if (user_mod_shift == 1) add_keymap_to_map (cs->map[dist_pos][MOD_SHIFT], keymap_shift, &co, user_dist, user_dir_south_west, user_dir_south, user_dir_south_east, user_dir_west, user_dir_repeat, user_dir_east, user_dir_north_west, user_dir_north, user_dir_north_east);
+    if (user_mod_altgr == 1) add_keymap_to_map (cs->map[dist_pos][MOD_ALTGR], keymap_altgr, &co, user_dist, user_dir_south_west, user_dir_south, user_dir_south_east, user_dir_west, user_dir_repeat, user_dir_east, user_dir_north_west, user_dir_north, user_dir_north_east);
   }
 }
 
@@ -518,8 +516,10 @@ int parse_routes_file (FILE *fp, route_t *routes_buf)
   return routes_cnt;
 }
 
-int process_route (const cs_t *css, const unsigned int root, const u64 s, const route_t *route_buf, char *out_buf, int *out_len)
+int process_route (const cs_t *css, const unsigned int root, const u64 s, const u64 dist_cnt, const u64 mod_cnt, const u64 dir_cnt, const route_t *route_buf, char *out_buf, int *out_len)
 {
+  const u64 selection_cnt = dist_cnt * mod_cnt * dir_cnt;
+
   int out_pos = 0;
 
   out_buf[out_pos] = root;
@@ -534,15 +534,15 @@ int process_route (const cs_t *css, const unsigned int root, const u64 s, const 
 
   for (int route_pos = 0; route_pos < route_buf->changes; route_pos++)
   {
-    const u64 m1 = left % SELECTION_CNT;
+    const u64 m1 = left % selection_cnt;
 
     if (prev_direction == m1) return RC_INVALID;
 
     prev_direction = m1;
 
-    const u64 m_distance  = m1 % DIST_CNT; const u64 m2 = m1 / DIST_CNT;
-    const u64 m_modifier  = m2 % MOD_CNT;  const u64 m3 = m2 / MOD_CNT;
-    const u64 m_direction = m3;
+    const u64 m_distance  = m1 % dist_cnt; const u64 m2 = m1 / dist_cnt;
+    const u64 m_modifier  = m2 % mod_cnt;  const u64 m3 = m2 / mod_cnt;
+    const u64 m_direction = m3 % dir_cnt;
 
     for (int r = 0; r < route_buf->repeat[route_pos]; r++)
     {
@@ -557,7 +557,7 @@ int process_route (const cs_t *css, const unsigned int root, const u64 s, const 
       cs = css + c;
     }
 
-    left /= SELECTION_CNT;
+    left /= selection_cnt;
   }
 
   *out_len = out_pos;
@@ -916,11 +916,27 @@ int main (int argc, char *argv[])
     // - Iteration 2: "3*North, 1* East, 3*South"
     // - Iteration N: "3*South-East-Shifted, 1*North, 3*South-East-Alt"
 
+    const u64 dist_cnt = 1 + (user_dist_max - user_dist_min);
+
+    const u64 mod_cnt  = user_mod_basic
+                       + user_mod_shift
+                       + user_mod_altgr;
+
+    const u64 dir_cnt  = user_dir_south_west
+                       + user_dir_south
+                       + user_dir_south_east
+                       + user_dir_west
+                       + user_dir_repeat
+                       + user_dir_east
+                       + user_dir_north_west
+                       + user_dir_north
+                       + user_dir_north_east;
+
     u64 keyspace = basechars_cnt;
 
     for (int i = 0; i < route_buf->changes; i++)
     {
-      keyspace *= SELECTION_CNT;
+      keyspace *= dist_cnt * mod_cnt * dir_cnt;
     }
 
     for (u64 k = 0; k < keyspace; k++)
@@ -934,7 +950,7 @@ int main (int argc, char *argv[])
 
       int pw_len = 0;
 
-      const int rc = process_route (css, c, kd, route_buf, pw_buf, &pw_len);
+      const int rc = process_route (css, c, kd, dist_cnt, mod_cnt, dir_cnt, route_buf, pw_buf, &pw_len);
 
       if (rc == RC_INVALID) continue;
 
