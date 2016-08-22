@@ -19,21 +19,7 @@
 #define VERSION_BIN           100
 
 #define DIST_CNT              16
-
-#define MOD_BASIC             0
-#define MOD_SHIFT             1
-#define MOD_ALTGR             2
 #define MOD_CNT               3
-
-#define DIR_SOUTH_WEST        0
-#define DIR_SOUTH             1
-#define DIR_SOUTH_EAST        2
-#define DIR_WEST              3
-#define DIR_REPEAT            4
-#define DIR_EAST              5
-#define DIR_NORTH_WEST        6
-#define DIR_NORTH             7
-#define DIR_NORTH_EAST        8
 #define DIR_CNT               9
 
 #define KEYMAP_WIDTH          13
@@ -291,15 +277,17 @@ int chr_to_co (const int keymap[KEYMAP_WIDTH][KEYMAP_HEIGHT], const int chr, co_
 
 void add_keymap_to_map (int *map, const int keymap[KEYMAP_WIDTH][KEYMAP_HEIGHT], const co_t *co, const int user_dist, const int user_dir_south_west, const int user_dir_south, const int user_dir_south_east, const int user_dir_west, const int user_dir_repeat, const int user_dir_east, const int user_dir_north_west, const int user_dir_north, const int user_dir_north_east)
 {
-  if (user_dir_south_west == 1) map[DIR_SOUTH_WEST] = co_to_chr (keymap, co->x - user_dist, co->y + user_dist);
-  if (user_dir_south      == 1) map[DIR_SOUTH]      = co_to_chr (keymap, co->x            , co->y + user_dist);
-  if (user_dir_south_east == 1) map[DIR_SOUTH_EAST] = co_to_chr (keymap, co->x + user_dist, co->y + user_dist);
-  if (user_dir_west       == 1) map[DIR_WEST]       = co_to_chr (keymap, co->x - user_dist, co->y            );
-  if (user_dir_repeat     == 1) map[DIR_REPEAT]     = co_to_chr (keymap, co->x            , co->y            );
-  if (user_dir_east       == 1) map[DIR_EAST]       = co_to_chr (keymap, co->x + user_dist, co->y            );
-  if (user_dir_north_west == 1) map[DIR_NORTH_WEST] = co_to_chr (keymap, co->x - user_dist, co->y - user_dist);
-  if (user_dir_north      == 1) map[DIR_NORTH]      = co_to_chr (keymap, co->x            , co->y - user_dist);
-  if (user_dir_north_east == 1) map[DIR_NORTH_EAST] = co_to_chr (keymap, co->x + user_dist, co->y - user_dist);
+  int dir_pos = 0;
+
+  if (user_dir_south_west == 1) map[dir_pos++] = co_to_chr (keymap, co->x - user_dist, co->y + user_dist);
+  if (user_dir_south      == 1) map[dir_pos++] = co_to_chr (keymap, co->x            , co->y + user_dist);
+  if (user_dir_south_east == 1) map[dir_pos++] = co_to_chr (keymap, co->x + user_dist, co->y + user_dist);
+  if (user_dir_west       == 1) map[dir_pos++] = co_to_chr (keymap, co->x - user_dist, co->y            );
+  if (user_dir_repeat     == 1) map[dir_pos++] = co_to_chr (keymap, co->x            , co->y            );
+  if (user_dir_east       == 1) map[dir_pos++] = co_to_chr (keymap, co->x + user_dist, co->y            );
+  if (user_dir_north_west == 1) map[dir_pos++] = co_to_chr (keymap, co->x - user_dist, co->y - user_dist);
+  if (user_dir_north      == 1) map[dir_pos++] = co_to_chr (keymap, co->x            , co->y - user_dist);
+  if (user_dir_north_east == 1) map[dir_pos++] = co_to_chr (keymap, co->x + user_dist, co->y - user_dist);
 }
 
 void setup_cs (cs_t *cs, const int c, const int keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGHT], const int keymap_shift[KEYMAP_WIDTH][KEYMAP_HEIGHT], const int keymap_altgr[KEYMAP_WIDTH][KEYMAP_HEIGHT], const int user_mod_basic, const int user_mod_shift, const int user_mod_altgr, const int user_dir_south_west, const int user_dir_south, const int user_dir_south_east, const int user_dir_west, const int user_dir_repeat, const int user_dir_east, const int user_dir_north_west, const int user_dir_north, const int user_dir_north_east, const int user_dist_min, const int user_dist_max)
@@ -331,9 +319,11 @@ void setup_cs (cs_t *cs, const int c, const int keymap_basic[KEYMAP_WIDTH][KEYMA
 
   for (int user_dist = user_dist_min, dist_pos = 0; user_dist <= user_dist_max; user_dist++, dist_pos++)
   {
-    if (user_mod_basic == 1) add_keymap_to_map (cs->map[dist_pos][MOD_BASIC], keymap_basic, &co, user_dist, user_dir_south_west, user_dir_south, user_dir_south_east, user_dir_west, user_dir_repeat, user_dir_east, user_dir_north_west, user_dir_north, user_dir_north_east);
-    if (user_mod_shift == 1) add_keymap_to_map (cs->map[dist_pos][MOD_SHIFT], keymap_shift, &co, user_dist, user_dir_south_west, user_dir_south, user_dir_south_east, user_dir_west, user_dir_repeat, user_dir_east, user_dir_north_west, user_dir_north, user_dir_north_east);
-    if (user_mod_altgr == 1) add_keymap_to_map (cs->map[dist_pos][MOD_ALTGR], keymap_altgr, &co, user_dist, user_dir_south_west, user_dir_south, user_dir_south_east, user_dir_west, user_dir_repeat, user_dir_east, user_dir_north_west, user_dir_north, user_dir_north_east);
+    int mod_pos = 0;
+
+    if (user_mod_basic == 1) add_keymap_to_map (cs->map[dist_pos][mod_pos++], keymap_basic, &co, user_dist, user_dir_south_west, user_dir_south, user_dir_south_east, user_dir_west, user_dir_repeat, user_dir_east, user_dir_north_west, user_dir_north, user_dir_north_east);
+    if (user_mod_shift == 1) add_keymap_to_map (cs->map[dist_pos][mod_pos++], keymap_shift, &co, user_dist, user_dir_south_west, user_dir_south, user_dir_south_east, user_dir_west, user_dir_repeat, user_dir_east, user_dir_north_west, user_dir_north, user_dir_north_east);
+    if (user_mod_altgr == 1) add_keymap_to_map (cs->map[dist_pos][mod_pos++], keymap_altgr, &co, user_dist, user_dir_south_west, user_dir_south, user_dir_south_east, user_dir_west, user_dir_repeat, user_dir_east, user_dir_north_west, user_dir_north, user_dir_north_east);
   }
 }
 
