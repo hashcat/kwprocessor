@@ -8,6 +8,8 @@
 #include <getopt.h>
 #include <fcntl.h>
 #include <stdint.h>
+#include <wchar.h>
+#include <locale.h>
 
 /**
  * Name........: keyboard-walk-processor (kwp)
@@ -62,8 +64,8 @@ typedef struct
 {
   FILE *fp;
 
-  char buf[BUFSIZ];
-  int  len;
+  wchar_t buf[BUFSIZ];
+  int     len;
 
 } out_t;
 
@@ -76,7 +78,7 @@ typedef struct
 
 typedef struct
 {
-  int map[DIST_CNT][MOD_CNT][DIR_CNT];
+  wchar_t map[DIST_CNT][MOD_CNT][DIR_CNT];
 
   int is_basic;
   int is_shift;
@@ -196,7 +198,7 @@ int count_lines (FILE *fp)
 
   while (!feof (fp))
   {
-    size_t nread = fread (buf, sizeof (char), BUFSIZ - 1, fp);
+    const size_t nread = fread (buf, sizeof (char), BUFSIZ - 1, fp);
 
     if (nread < 1) continue;
 
@@ -215,7 +217,7 @@ int count_lines (FILE *fp)
   return cnt;
 }
 
-char hex_convert (const char c)
+int hex_convert (const wchar_t c)
 {
   return (c & 15) + (c >> 6) * 9;
 }
@@ -224,18 +226,15 @@ void out_flush (out_t *out)
 {
   if (out->len == 0) return;
 
-  fwrite (out->buf, 1, out->len, out->fp);
+  wprintf (L"%ls", out->buf);
 
   out->len = 0;
 }
 
-void out_push (out_t *out, const char *pw_buf, const int pw_len)
+void out_push (out_t *out, const wchar_t *pw_buf, const int pw_len)
 {
-  char *ptr = out->buf + out->len;
-
-  memcpy (ptr, pw_buf, pw_len);
-
-  ptr[pw_len] = '\n';
+  wcscat (out->buf, pw_buf);
+  wcscat (out->buf, L"\n");
 
   out->len += pw_len + 1;
 
@@ -245,7 +244,7 @@ void out_push (out_t *out, const char *pw_buf, const int pw_len)
   }
 }
 
-int co_to_chr (const int keymap[KEYMAP_WIDTH][KEYMAP_HEIGHT], const int x, const int y)
+wchar_t co_to_chr (const wchar_t keymap[KEYMAP_WIDTH][KEYMAP_HEIGHT], const int x, const int y)
 {
   if (x < 0) return RC_INVALID;
   if (y < 0) return RC_INVALID;
@@ -256,7 +255,7 @@ int co_to_chr (const int keymap[KEYMAP_WIDTH][KEYMAP_HEIGHT], const int x, const
   return keymap[x][y];
 }
 
-int chr_to_co (const int keymap[KEYMAP_WIDTH][KEYMAP_HEIGHT], const int chr, co_t *co)
+int chr_to_co (const wchar_t keymap[KEYMAP_WIDTH][KEYMAP_HEIGHT], const wchar_t chr, co_t *co)
 {
   for (int x = 0; x < KEYMAP_WIDTH; x++)
   {
@@ -275,7 +274,7 @@ int chr_to_co (const int keymap[KEYMAP_WIDTH][KEYMAP_HEIGHT], const int chr, co_
   return RC_INVALID;
 }
 
-void add_keymap_to_map (int *map, const int keymap[KEYMAP_WIDTH][KEYMAP_HEIGHT], const co_t *co, const int user_dist, const int user_dir_south_west, const int user_dir_south, const int user_dir_south_east, const int user_dir_west, const int user_dir_repeat, const int user_dir_east, const int user_dir_north_west, const int user_dir_north, const int user_dir_north_east)
+void add_keymap_to_map (wchar_t *map, const wchar_t keymap[KEYMAP_WIDTH][KEYMAP_HEIGHT], const co_t *co, const int user_dist, const int user_dir_south_west, const int user_dir_south, const int user_dir_south_east, const int user_dir_west, const int user_dir_repeat, const int user_dir_east, const int user_dir_north_west, const int user_dir_north, const int user_dir_north_east)
 {
   int dir_pos = 0;
 
@@ -290,7 +289,7 @@ void add_keymap_to_map (int *map, const int keymap[KEYMAP_WIDTH][KEYMAP_HEIGHT],
   if (user_dir_north_east == 1) map[dir_pos++] = co_to_chr (keymap, co->x + user_dist, co->y - user_dist);
 }
 
-void setup_cs (cs_t *cs, const int c, const int keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGHT], const int keymap_shift[KEYMAP_WIDTH][KEYMAP_HEIGHT], const int keymap_altgr[KEYMAP_WIDTH][KEYMAP_HEIGHT], const int user_mod_basic, const int user_mod_shift, const int user_mod_altgr, const int user_dir_south_west, const int user_dir_south, const int user_dir_south_east, const int user_dir_west, const int user_dir_repeat, const int user_dir_east, const int user_dir_north_west, const int user_dir_north, const int user_dir_north_east, const int user_dist_min, const int user_dist_max)
+void setup_cs (cs_t *cs, const int c, const wchar_t keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGHT], const wchar_t keymap_shift[KEYMAP_WIDTH][KEYMAP_HEIGHT], const wchar_t keymap_altgr[KEYMAP_WIDTH][KEYMAP_HEIGHT], const int user_mod_basic, const int user_mod_shift, const int user_mod_altgr, const int user_dir_south_west, const int user_dir_south, const int user_dir_south_east, const int user_dir_west, const int user_dir_repeat, const int user_dir_east, const int user_dir_north_west, const int user_dir_north, const int user_dir_north_east, const int user_dist_min, const int user_dist_max)
 {
   for (int i = 0; i < DIST_CNT; i++)
   {
@@ -327,13 +326,13 @@ void setup_cs (cs_t *cs, const int c, const int keymap_basic[KEYMAP_WIDTH][KEYMA
   }
 }
 
-char *fgetl (FILE *fp, char *buf, int len)
+wchar_t *fgetl (FILE *fp, wchar_t *buf, int len)
 {
-  char *line_buf = fgets (buf, len - 1, fp);
+  wchar_t *line_buf = fgetws (buf, len - 1, fp);
 
   if (line_buf == NULL) return NULL;
 
-  size_t line_len = strlen (line_buf);
+  size_t line_len = wcslen (line_buf);
 
   while (line_len)
   {
@@ -359,23 +358,23 @@ char *fgetl (FILE *fp, char *buf, int len)
   return line_buf;
 }
 
-int parse_keymap_file (FILE *fp, int keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGHT], int keymap_shift[KEYMAP_WIDTH][KEYMAP_HEIGHT], int keymap_altgr[KEYMAP_WIDTH][KEYMAP_HEIGHT])
+int parse_keymap_file (FILE *fp, wchar_t keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGHT], wchar_t keymap_shift[KEYMAP_WIDTH][KEYMAP_HEIGHT], wchar_t keymap_altgr[KEYMAP_WIDTH][KEYMAP_HEIGHT])
 {
-  char *tmp = (char *) malloc (BUFSIZ);
+  wchar_t *tmp = (wchar_t *) calloc (BUFSIZ, sizeof (wchar_t));
 
   // first 4 lines are basic
 
   for (int y = 0; y < 4; y++)
   {
-    char *line_buf = fgetl (fp, tmp, BUFSIZ);
+    wchar_t *line_buf = fgetl (fp, tmp, BUFSIZ);
 
     if (line_buf == NULL) continue;
 
-    const size_t line_len = strlen (line_buf);
+    const size_t line_len = wcslen (line_buf);
 
     for (size_t x = 0; x < line_len; x++)
     {
-      unsigned char c = line_buf[x];
+      wchar_t c = line_buf[x];
 
       if (c == ' ') continue;
 
@@ -387,15 +386,15 @@ int parse_keymap_file (FILE *fp, int keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGHT], 
 
   for (int y = 0; y < 4; y++)
   {
-    char *line_buf = fgetl (fp, tmp, BUFSIZ);
+    wchar_t *line_buf = fgetl (fp, tmp, BUFSIZ);
 
     if (line_buf == NULL) continue;
 
-    const size_t line_len = strlen (line_buf);
+    const size_t line_len = wcslen (line_buf);
 
     for (size_t x = 0; x < line_len; x++)
     {
-      unsigned char c = line_buf[x];
+      wchar_t c = line_buf[x];
 
       if (c == ' ') continue;
 
@@ -407,15 +406,15 @@ int parse_keymap_file (FILE *fp, int keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGHT], 
 
   for (int y = 0; y < 4; y++)
   {
-    char *line_buf = fgetl (fp, tmp, BUFSIZ);
+    wchar_t *line_buf = fgetl (fp, tmp, BUFSIZ);
 
     if (line_buf == NULL) continue;
 
-    const size_t line_len = strlen (line_buf);
+    const size_t line_len = wcslen (line_buf);
 
     for (size_t x = 0; x < line_len; x++)
     {
-      unsigned char c = line_buf[x];
+      wchar_t c = line_buf[x];
 
       if (c == ' ') continue;
 
@@ -428,24 +427,24 @@ int parse_keymap_file (FILE *fp, int keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGHT], 
   return RC_OK;
 }
 
-int parse_basechars_file (FILE *fp, unsigned char *basechars_buf, int *basechars_cnt, const cs_t *css, const int user_mod_basic, const int user_mod_shift, const int user_mod_altgr)
+int parse_basechars_file (FILE *fp, wchar_t *basechars_buf, int *basechars_cnt, const cs_t *css, const int user_mod_basic, const int user_mod_shift, const int user_mod_altgr)
 {
-  char *tmp = (char *) malloc (BUFSIZ);
+  wchar_t *tmp = (wchar_t *) calloc (BUFSIZ, sizeof (wchar_t));
 
-  char *line_buf = fgetl (fp, tmp, BUFSIZ);
+  wchar_t *line_buf = fgetl (fp, tmp, BUFSIZ);
 
   if (line_buf == NULL) return RC_INVALID;
 
   int basechars_tmp = 0;
 
-  const size_t line_len = strlen (line_buf);
+  const size_t line_len = wcslen (line_buf);
 
-  if (line_len <   1) return RC_INVALID;
-  if (line_len > 255) return RC_INVALID;
+  if (line_len <    1) return RC_INVALID;
+  if (line_len > 1023) return RC_INVALID;
 
   for (size_t line_pos = 0; line_pos < line_len; line_pos++)
   {
-    unsigned char c = (unsigned char) line_buf[line_pos];
+    wchar_t c = line_buf[line_pos];
 
     if ((user_mod_basic == 0) && (css[c].is_basic == 1)) continue;
     if ((user_mod_shift == 0) && (css[c].is_shift == 1)) continue;
@@ -465,17 +464,17 @@ int parse_basechars_file (FILE *fp, unsigned char *basechars_buf, int *basechars
 
 int parse_routes_file (FILE *fp, route_t *routes_buf)
 {
-  char *tmp = (char *) malloc (BUFSIZ);
+  wchar_t *tmp = (wchar_t *) calloc (BUFSIZ, sizeof (wchar_t));
 
   int routes_cnt = 0;
 
   while (!feof (fp))
   {
-    char *line_buf = fgetl (fp, tmp, BUFSIZ);
+    wchar_t *line_buf = fgetl (fp, tmp, BUFSIZ);
 
     if (line_buf == NULL) continue;
 
-    const size_t line_len = strlen (line_buf);
+    const size_t line_len = wcslen (line_buf);
 
     if (line_len < ROUTE_LENGTH_MIN) continue;
     if (line_len > ROUTE_LENGTH_MAX) continue;
@@ -486,7 +485,7 @@ int parse_routes_file (FILE *fp, route_t *routes_buf)
 
     for (size_t line_pos = 0; line_pos < line_len; line_pos++)
     {
-      const char c = line_buf[line_pos];
+      wchar_t c = line_buf[line_pos];
 
       const int repeat = hex_convert (c);
 
@@ -506,7 +505,7 @@ int parse_routes_file (FILE *fp, route_t *routes_buf)
   return routes_cnt;
 }
 
-int process_route (const cs_t *css, const unsigned int root, const u64 s, const u64 dist_cnt, const u64 mod_cnt, const u64 dir_cnt, const route_t *route_buf, char *out_buf, int *out_len)
+int process_route (const cs_t *css, const wchar_t root, const u64 s, const u64 dist_cnt, const u64 mod_cnt, const u64 dir_cnt, const route_t *route_buf, wchar_t *out_buf, int *out_len)
 {
   const u64 selection_cnt = dist_cnt * mod_cnt * dir_cnt;
 
@@ -559,6 +558,8 @@ int process_route (const cs_t *css, const unsigned int root, const u64 s, const 
 
 int main (int argc, char *argv[])
 {
+  setlocale (LC_ALL, "");
+
   /* usage */
 
   int   version               = 0;
@@ -746,11 +747,13 @@ int main (int argc, char *argv[])
   setmode (fileno (stderr), O_BINARY);
   #endif
 
+  setlocale(LC_ALL, "");
+
   FILE *fp_out = stdout;
 
   if (output_file)
   {
-    if ((fp_out = fopen (output_file, "ab")) == NULL)
+    if ((fp_out = fopen (output_file, "a")) == NULL)
     {
       fprintf (stderr, "ERROR: %s: %s\n", output_file, strerror (errno));
 
@@ -773,9 +776,9 @@ int main (int argc, char *argv[])
 
   // init keymaps
 
-  int keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGHT];
-  int keymap_shift[KEYMAP_WIDTH][KEYMAP_HEIGHT];
-  int keymap_altgr[KEYMAP_WIDTH][KEYMAP_HEIGHT];
+  wchar_t keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGHT];
+  wchar_t keymap_shift[KEYMAP_WIDTH][KEYMAP_HEIGHT];
+  wchar_t keymap_altgr[KEYMAP_WIDTH][KEYMAP_HEIGHT];
 
   for (int x = 0; x < KEYMAP_WIDTH; x++)
   {
@@ -820,9 +823,9 @@ int main (int argc, char *argv[])
 
   // init charset
 
-  cs_t *css = (cs_t *) calloc (256, sizeof (cs_t));
+  cs_t *css = (cs_t *) calloc (0x10000, sizeof (cs_t));
 
-  for (int c = 0; c < 256; c++)
+  for (int c = 0; c < 0x10000; c++)
   {
     setup_cs (css + c, c, keymap_basic, keymap_shift, keymap_altgr, user_mod_basic, user_mod_shift, user_mod_altgr, user_dir_south_west, user_dir_south, user_dir_south_east, user_dir_west, user_dir_repeat, user_dir_east, user_dir_north_west, user_dir_north, user_dir_north_east, user_dist_min, user_dist_max);
   }
@@ -831,7 +834,7 @@ int main (int argc, char *argv[])
 
   int basechars_cnt = 0;
 
-  unsigned char *basechars_buf = (unsigned char *) malloc (256);
+  wchar_t *basechars_buf = (wchar_t *) calloc (0x10000, sizeof (wchar_t));
 
   fp = fopen (basechar_file, "r");
 
@@ -934,9 +937,9 @@ int main (int argc, char *argv[])
       const u64 km = k % basechars_cnt;
       const u64 kd = k / basechars_cnt;
 
-      const unsigned int c = basechars_buf[km];
+      const wchar_t c = basechars_buf[km];
 
-      char pw_buf[100];
+      wchar_t pw_buf[100];
 
       int pw_len = 0;
 
