@@ -64,8 +64,8 @@ typedef struct
 {
   FILE *fp;
 
-  wchar_t buf[BUFSIZ];
-  int     len;
+  char buf[BUFSIZ];
+  int  len;
 
 } out_t;
 
@@ -226,17 +226,21 @@ void out_flush (out_t *out)
 {
   if (out->len == 0) return;
 
-  wprintf (L"%ls", out->buf);
+  fwrite (out->buf, 1, out->len, out->fp);
 
   out->len = 0;
 }
 
 void out_push (out_t *out, const wchar_t *pw_buf, const int pw_len)
 {
-  wcscat (out->buf, pw_buf);
-  wcscat (out->buf, L"\n");
+  for (int i = 0; i < pw_len; i++)
+  {
+    out->len += wctomb (out->buf + out->len, pw_buf[i]);
+  }
 
-  out->len += pw_len + 1;
+  out->buf[out->len] = '\n';
+
+  out->len++;
 
   if (out->len >= BUFSIZ - 100)
   {
@@ -289,7 +293,7 @@ void add_keymap_to_map (wchar_t *map, const wchar_t keymap[KEYMAP_WIDTH][KEYMAP_
   if (user_dir_north_east == 1) map[dir_pos++] = co_to_chr (keymap, co->x + user_dist, co->y - user_dist);
 }
 
-void setup_cs (cs_t *cs, const int c, const wchar_t keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGHT], const wchar_t keymap_shift[KEYMAP_WIDTH][KEYMAP_HEIGHT], const wchar_t keymap_altgr[KEYMAP_WIDTH][KEYMAP_HEIGHT], const int user_mod_basic, const int user_mod_shift, const int user_mod_altgr, const int user_dir_south_west, const int user_dir_south, const int user_dir_south_east, const int user_dir_west, const int user_dir_repeat, const int user_dir_east, const int user_dir_north_west, const int user_dir_north, const int user_dir_north_east, const int user_dist_min, const int user_dist_max)
+void setup_cs (cs_t *cs, const wchar_t c, const wchar_t keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGHT], const wchar_t keymap_shift[KEYMAP_WIDTH][KEYMAP_HEIGHT], const wchar_t keymap_altgr[KEYMAP_WIDTH][KEYMAP_HEIGHT], const int user_mod_basic, const int user_mod_shift, const int user_mod_altgr, const int user_dir_south_west, const int user_dir_south, const int user_dir_south_east, const int user_dir_west, const int user_dir_repeat, const int user_dir_east, const int user_dir_north_west, const int user_dir_north, const int user_dir_north_east, const int user_dist_min, const int user_dist_max)
 {
   for (int i = 0; i < DIST_CNT; i++)
   {
@@ -535,7 +539,7 @@ int process_route (const cs_t *css, const wchar_t root, const u64 s, const u64 d
 
     for (int r = 0; r < route_buf->repeat[route_pos]; r++)
     {
-      const int c = cs->map[m_distance][m_modifier][m_direction];
+      const wchar_t c = cs->map[m_distance][m_modifier][m_direction];
 
       if (c == RC_INVALID) return RC_INVALID;
 
