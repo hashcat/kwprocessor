@@ -2,8 +2,8 @@
 ##  Makefile for kwp
 ##
 
-#CFLAGS = -W -Wall -std=c99 -O2 -s
-CFLAGS = -W -Wall -std=c99 -g
+CFLAGS = -W -Wall -std=c99 -O2 -s
+#CFLAGS = -W -Wall -std=c99 -g
 
 CC_NATIVE         = gcc
 
