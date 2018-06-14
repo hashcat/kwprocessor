@@ -739,7 +739,7 @@ int main (int argc, char *argv[])
     user_dir_north      = 1;
     user_dir_north_east = 1;
   }
-  
+
   // version and usage
 
   if (usage)
