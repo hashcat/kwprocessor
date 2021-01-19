@@ -71,7 +71,7 @@ In case you're wondering: The ordering matches your numpad ordering.
 
 ### The keymap layout
 
-There's many different keymap layouts and since this can lead to completely different candidates, the KWP needs to know which layout you want to use. For example, the English and the German keyboard layout differ in many aspects. For instance, the position of the "x" is switched with the "y". 
+There's many different keymap layouts and since this can lead to completely different candidates, the KWP needs to know which layout you want to use. For example, the English and the German keyboard layout differ in many aspects. For instance, the position of the "z" is switched with the "y". 
 
 That means for the "313" configuration the KWP will create a candidate "1qazxsw2" if you select an English layout and a candidate "1qayxsw2" if you select a German layout. I've added those both layouts and I hope people will contribute to this with their own language specific layouts, therefore I tried to make the configuration of the keymap layout file as easy as possible. 
 
