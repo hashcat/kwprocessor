@@ -51,6 +51,7 @@
 #define USER_DIR_NORTH_WEST   0
 #define USER_DIR_NORTH        1
 #define USER_DIR_NORTH_EAST   0
+#define USER_DIR_CONT         0
 #define USER_DIR_ALL          0
 
 #define USER_DIST_MIN         1
@@ -127,6 +128,7 @@ static const char *USAGE_BIG[] =
   "  -7, --keywalk-north-west   | BOOL | Include routes heading diagonale north-west                 | 0",
   "  -8, --keywalk-north        | BOOL | Include routes heading straight north                       | 1",
   "  -9, --keywalk-north-east   | BOOL | Include routes heading diagonale north-east                 | 0",
+  "  -c, --keywalk-cont         |      | Shortcut to enable adjacent keys (continuous walks)         |",
   "  -0, --keywalk-all          |      | Shortcut to enable all --keywalk-* directions               |",
   "  -n, --keywalk-distance-min | NUM  | Minimum allowed distance between keys                       | 1",
   "  -x, --keywalk-distance-max | NUM  | Maximum allowed distance between keys                       | 1",
@@ -582,6 +584,7 @@ int main (int argc, char *argv[])
   int   user_dir_north_west  = USER_DIR_NORTH_WEST;
   int   user_dir_north       = USER_DIR_NORTH;
   int   user_dir_north_east  = USER_DIR_NORTH_EAST;
+  int   user_dir_cont        = USER_DIR_CONT;
   int   user_dir_all         = USER_DIR_ALL;
   int   user_dist_min        = USER_DIST_MIN;
   int   user_dist_max        = USER_DIST_MAX;
@@ -602,6 +605,7 @@ int main (int argc, char *argv[])
   #define IDX_USER_DIR_NORTH_WEST  '7'
   #define IDX_USER_DIR_NORTH       '8'
   #define IDX_USER_DIR_NORTH_EAST  '9'
+  #define IDX_USER_DIR_CONT        'c'
   #define IDX_USER_DIR_ALL         '0'
   #define IDX_USER_DIST_MIN        'n'
   #define IDX_USER_DIST_MAX        'x'
@@ -624,6 +628,7 @@ int main (int argc, char *argv[])
     {"keywalk-north-west",    required_argument, 0, IDX_USER_DIR_NORTH_WEST},
     {"keywalk-north",         required_argument, 0, IDX_USER_DIR_NORTH},
     {"keywalk-north-east",    required_argument, 0, IDX_USER_DIR_NORTH_EAST},
+    {"keywalk-cont",          no_argument,       0, IDX_USER_DIR_CONT},
     {"keywalk-all",           no_argument,       0, IDX_USER_DIR_ALL},
     {"keywalk-distance-min",  required_argument, 0, IDX_USER_DIST_MIN},
     {"keywalk-distance-max",  required_argument, 0, IDX_USER_DIST_MAX},
@@ -634,7 +639,7 @@ int main (int argc, char *argv[])
 
   int c;
 
-  while ((c = getopt_long (argc, argv, "Vho:b:s:a:z1:2:3:4:5:6:7:8:9:0n:x:", long_options, &option_index)) != -1)
+  while ((c = getopt_long (argc, argv, "Vho:b:s:a:z1:2:3:4:5:6:7:8:9:c:0n:x:", long_options, &option_index)) != -1)
   {
     switch (c)
     {
@@ -654,6 +659,7 @@ int main (int argc, char *argv[])
       case IDX_USER_DIR_NORTH_WEST: user_dir_north_west = atoi (optarg); break;
       case IDX_USER_DIR_NORTH:      user_dir_north      = atoi (optarg); break;
       case IDX_USER_DIR_NORTH_EAST: user_dir_north_east = atoi (optarg); break;
+      case IDX_USER_DIR_CONT:       user_dir_cont       = 1;             break;
       case IDX_USER_DIR_ALL:        user_dir_all        = 1;             break;
       case IDX_USER_DIST_MIN:       user_dist_min       = atoi (optarg); break;
       case IDX_USER_DIST_MAX:       user_dist_max       = atoi (optarg); break;
@@ -706,6 +712,19 @@ int main (int argc, char *argv[])
     user_mod_basic      = 1;
     user_mod_shift      = 1;
     user_mod_altgr      = 1;
+  }
+
+  if (user_dir_cont)
+  {
+    user_dir_south_west = 1;
+    user_dir_south      = 1;
+    user_dir_south_east = 0;
+    user_dir_west       = 1;
+    user_dir_repeat     = 1;
+    user_dir_east       = 1;
+    user_dir_north_west = 0;
+    user_dir_north      = 1;
+    user_dir_north_east = 1;
   }
 
   if (user_dir_all)
