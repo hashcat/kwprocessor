@@ -376,6 +376,18 @@ static int check_keymap_line_width(size_t line_len, int total_line_num, const ch
   return RC_OK;
 }
 
+static wchar_t* read_keymap_line(FILE *fp, wchar_t *tmp_buf, const char *section_name, int section_row)
+{
+  wchar_t *line_buf = fgetl(fp, tmp_buf, BUFSIZ);
+
+  if (line_buf == NULL)
+  {
+    fprintf(stderr, "ERROR: Keymap file is incomplete. Expected line for %s map, row %d.\n", section_name, section_row);
+  }
+
+  return line_buf;
+}
+
 int parse_keymap_file (FILE *fp, wchar_t keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGHT], wchar_t keymap_shift[KEYMAP_WIDTH][KEYMAP_HEIGHT], wchar_t keymap_altgr[KEYMAP_WIDTH][KEYMAP_HEIGHT])
 {
   wchar_t *tmp = (wchar_t *) calloc (BUFSIZ, sizeof (wchar_t));
@@ -384,9 +396,8 @@ int parse_keymap_file (FILE *fp, wchar_t keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGH
 
   for (int y = 0; y < 4; y++)
   {
-    wchar_t *line_buf = fgetl (fp, tmp, BUFSIZ);
-
-    if (line_buf == NULL) continue;
+    wchar_t *line_buf = read_keymap_line(fp, tmp, "basic", y + 1);
+    if (line_buf == NULL) { free(tmp); return RC_INVALID; }
 
     const size_t line_len = wcslen (line_buf);
 
@@ -410,9 +421,8 @@ int parse_keymap_file (FILE *fp, wchar_t keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGH
 
   for (int y = 0; y < 4; y++)
   {
-    wchar_t *line_buf = fgetl (fp, tmp, BUFSIZ);
-
-    if (line_buf == NULL) continue;
+    wchar_t *line_buf = read_keymap_line(fp, tmp, "shift", y + 1);
+    if (line_buf == NULL) { free(tmp); return RC_INVALID; }
 
     const size_t line_len = wcslen (line_buf);
 
@@ -436,9 +446,8 @@ int parse_keymap_file (FILE *fp, wchar_t keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGH
 
   for (int y = 0; y < 4; y++)
   {
-    wchar_t *line_buf = fgetl (fp, tmp, BUFSIZ);
-
-    if (line_buf == NULL) continue;
+    wchar_t *line_buf = read_keymap_line(fp, tmp, "altgr", y + 1);
+    if (line_buf == NULL) { free(tmp); return RC_INVALID; }
 
     const size_t line_len = wcslen (line_buf);
 
