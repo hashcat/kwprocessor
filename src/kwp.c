@@ -1016,6 +1016,7 @@ int main (int argc, char *argv[])
   out_flush (out);
 
   free (routes_buf);
+  free(basechars_buf);
   free (css);
   free (out);
 
