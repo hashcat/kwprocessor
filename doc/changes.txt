@@ -1,0 +1,77 @@
+* changes v1.00 -> v2.0.0
+
+##
+## Keyboard Layouts
+##
+
+- Added 53 layouts generated from xkeyboard-config, the layout database X11 and Wayland already
+  use: af, am, ara, at, bd, be, bg, br, by, ch, cz, ee, et, ge, gr, hr, hu, il, in-ben, in-deva,
+  in-guj, in-kan, in-mal, in-tam, in-tel, ir, kg, kh, kz, la, latam, lk, lt, lv, mk, mm, mn, nl,
+  no, np, pk, pl, pt-pt, ro, rs, si, sk, th, tj, tr, tw, ua and vn. 68 keymaps ship now, up from 15
+- Added a base-character file beside each of those layouts, holding exactly the characters that
+  layout can reach. full.base is ASCII plus Latin-1, so a non-Latin keymap had nothing to start a
+  walk from
+- Added basechars/ru.base for the Russian keymap, which shipped without one
+- Added tools/xkb2kwp.py, which writes a keymap and a base-character file from an xkeyboard-config
+  layout. That it reproduces keymaps/en-us.keymap byte for byte is the check that it reads xkb
+  correctly
+- Fixed keymaps/en-gb.keymap and keymaps/pt.keymap placing their bottom row one column too far to
+  the right, which left neither able to produce a walk heading down the keyboard from 1
+- Fixed keymaps/it.keymap and basechars/it.base, where the key left of Z sat in the alt-gr block
+  instead of the bottom row, the key left of 1 was missing, and the shift block held accented
+  vowels where that keyboard gives punctuation
+
+##
+## New Features and Options
+##
+
+- Keymaps, base-character files and route files are read as UTF-8, and candidates are written as
+  UTF-8, whatever locale the run has. Reading went through the C library's wide character functions
+  before, so what a file decoded to depended on the locale
+- A file saved in another encoding is reported as such. The reader used to give the same answer for
+  a line it could not decode as for a line that was not there, so a keymap in the wrong encoding
+  came back as a keymap with a line missing
+- Added routes/2-to-12-direction-change-every-step.route, every route in it a line of ones, which
+  changes direction at every step. The other route files stop at five direction changes, so a walk
+  like 1q2w3e4r was out of reach. Such a walk needs a diagonal, so the file wants "-c" or "-9 1"
+- "kwp -V" prints a three part version. It was held as one number divided by 100 and printed
+  through a float format, so it could only ever read v1.00 or v1.01
+- README.md documents the keymap format, the command line and the limits a route file lives under
+
+##
+## Performance
+##
+
+- Reduced peak memory for a run from 110 MiB to under 2 MiB, and removed 65536 initialisations
+  before the first candidate. The table of keys holds one entry per key the keymap carries, rather
+  than one per codepoint in the basic multilingual plane
+
+##
+## Bug Fixes
+##
+
+- Fixed the Windows build reading each byte of a UTF-8 keymap as a character of its own, which left
+  it unable to use any non-Latin keymap. A wchar_t is 16 bits wide there and the C locale is a
+  single byte code page
+- Fixed the Windows build writing past the end of its output buffer on an ASCII keymap, where
+  wctomb returns -1 for a character the code page cannot hold and the output path added that to its
+  length
+- Fixed the check for stepping off the keymap never firing, where the marker was -1 held in a
+  wchar_t and a comparison against it is always false when wchar_t is unsigned
+- Fixed a write past the end of the candidate buffer. The route format allows 32 segments of 16
+  repeats each, so a candidate can be 513 characters, and it was written into a buffer of 100
+- Fixed a write past the end of the output buffer, which kept 100 bytes free before flushing where
+  one UTF-8 character takes up to four bytes
+- Fixed a read past the end of the key table for a base character above the basic multilingual
+  plane
+- Fixed a route whose keyspace does not fit in 64 bits reporting success and generating nothing.
+  With the default options a 32 segment route multiplies to exactly 2 to the 64th, which wraps to
+  zero
+- Fixed a routes file of more than about a thousand lines hanging before it generated anything.
+  Every input file was counted with fread and then read again after a rewind, which leaves the
+  stream byte oriented
+- Fixed the "-c" shortcut asking for an argument it has no use for, so it swallowed the name of the
+  base-character file and the run ended on the usage message
+- Fixed every character being recorded as reachable without a modifier, which left "-b 0"
+  discarding the whole base-character set and the shift and alt-gr keyboards impossible to walk on
+  their own

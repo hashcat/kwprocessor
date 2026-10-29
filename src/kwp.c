@@ -8,8 +8,6 @@
 #include <getopt.h>
 #include <fcntl.h>
 #include <stdint.h>
-#include <wchar.h>
-#include <locale.h>
 
 /**
  * Name........: keyboard-walk-processor (kwp)
@@ -18,7 +16,7 @@
  * License.....: MIT
  */
 
-#define VERSION_BIN           100
+#define VERSION_TAG           "2.0.0"
 
 #define DIST_CNT              16
 #define MOD_CNT               3
@@ -30,12 +28,32 @@
 
 #define RC_OK                 0
 #define RC_INVALID            -1
+#define RC_EOF                1
+
+// a keymap cell with no key on it, and a neighbour that is off the keymap. CHR_NONE is outside
+// Unicode, so it cannot collide with a character a keymap can hold.
+
+#define CHR_NONE              0xffffffff
+#define CS_NONE               (-1)
 
 #define ROUTE_LENGTH_MIN      1
 #define ROUTE_LENGTH_MAX      32
 
 #define ROUTE_REPEAT_MIN      1
 #define ROUTE_REPEAT_MAX      16
+
+// the longest candidate the route format can describe, one root plus every repeat of every segment
+
+#define PW_LEN_MAX            (1 + (ROUTE_LENGTH_MAX * ROUTE_REPEAT_MAX))
+
+// a keymap holds this many keys at most, so the charset table never needs more entries
+
+#define CS_CNT_MAX            (KEYMAP_ENTRIES * MOD_CNT)
+
+// room for the longest candidate in UTF-8 plus its newline, several times over
+
+#define OUT_BUFSIZ            0x10000
+#define OUT_RESERVE           ((PW_LEN_MAX * 4) + 1)
 
 #define USER_MOD_BASIC        1
 #define USER_MOD_SHIFT        0
@@ -59,13 +77,15 @@
 
 // types
 
+typedef uint8_t  u8;
+typedef uint32_t u32;
 typedef uint64_t u64;
 
 typedef struct
 {
   FILE *fp;
 
-  char buf[BUFSIZ];
+  char buf[OUT_BUFSIZ];
   int  len;
 
 } out_t;
@@ -79,7 +99,9 @@ typedef struct
 
 typedef struct
 {
-  wchar_t map[DIST_CNT][MOD_CNT][DIR_CNT];
+  u32 chr;
+
+  int nxt[DIST_CNT][MOD_CNT][DIR_CNT];
 
   int is_basic;
   int is_shift;
@@ -190,6 +212,100 @@ static void usage_big_print (const char *progname)
   }
 }
 
+// kwp reads and writes UTF-8 itself rather than going through the C library's wide character
+// functions. Those depend on the locale the user happens to run under, and on Windows wchar_t is
+// only 16 bits wide, so a keymap outside the current code page could neither be read nor written.
+
+static int utf8_len (const u8 b)
+{
+  if (b < 0x80) return 1;
+
+  if ((b & 0xe0) == 0xc0) return 2;
+  if ((b & 0xf0) == 0xe0) return 3;
+  if ((b & 0xf8) == 0xf0) return 4;
+
+  return RC_INVALID;
+}
+
+static int utf8_to_u32 (const u8 *buf, const size_t len, u32 *out)
+{
+  const int n = utf8_len (buf[0]);
+
+  if (n == RC_INVALID)    return RC_INVALID;
+  if ((size_t) n > len)   return RC_INVALID;
+
+  u32 c = buf[0];
+
+  if (n == 2) c = buf[0] & 0x1f;
+  if (n == 3) c = buf[0] & 0x0f;
+  if (n == 4) c = buf[0] & 0x07;
+
+  for (int i = 1; i < n; i++)
+  {
+    if ((buf[i] & 0xc0) != 0x80) return RC_INVALID;
+
+    c = (c << 6) | (buf[i] & 0x3f);
+  }
+
+  // an overlong form, a surrogate half or a value past the end of Unicode is not a character any
+  // keymap can carry, so the file is rejected rather than walked from something invalid
+
+  if ((n == 2) && (c < 0x80))    return RC_INVALID;
+  if ((n == 3) && (c < 0x800))   return RC_INVALID;
+  if ((n == 4) && (c < 0x10000)) return RC_INVALID;
+
+  if (c > 0x10ffff) return RC_INVALID;
+
+  if ((c >= 0xd800) && (c <= 0xdfff)) return RC_INVALID;
+
+  *out = c;
+
+  return n;
+}
+
+static int u32_to_utf8 (char *buf, const u32 c)
+{
+  if (c < 0x80)
+  {
+    buf[0] = (char) c;
+
+    return 1;
+  }
+
+  if (c < 0x800)
+  {
+    buf[0] = (char) (0xc0 | (c >> 6));
+    buf[1] = (char) (0x80 | (c & 0x3f));
+
+    return 2;
+  }
+
+  if (c < 0x10000)
+  {
+    buf[0] = (char) (0xe0 | (c >> 12));
+    buf[1] = (char) (0x80 | ((c >> 6) & 0x3f));
+    buf[2] = (char) (0x80 | ((c >> 0) & 0x3f));
+
+    return 3;
+  }
+
+  buf[0] = (char) (0xf0 | (c >> 18));
+  buf[1] = (char) (0x80 | ((c >> 12) & 0x3f));
+  buf[2] = (char) (0x80 | ((c >>  6) & 0x3f));
+  buf[3] = (char) (0x80 | ((c >>  0) & 0x3f));
+
+  return 4;
+}
+
+static size_t u32_len (const u32 *buf)
+{
+  size_t len = 0;
+
+  while (buf[len] != 0) len++;
+
+  return len;
+}
+
 int count_lines (FILE *fp)
 {
   int cnt = 0;
@@ -198,11 +314,11 @@ int count_lines (FILE *fp)
 
   char prev = '\n';
 
-  while (!feof (fp))
+  while (feof (fp) == 0)
   {
     const size_t nread = fread (buf, sizeof (char), BUFSIZ - 1, fp);
 
-    if (nread < 1) continue;
+    if (nread < 1) break;
 
     size_t i;
 
@@ -219,7 +335,7 @@ int count_lines (FILE *fp)
   return cnt;
 }
 
-int hex_convert (const wchar_t c)
+int hex_convert (const u32 c)
 {
   return (c & 15) + (c >> 6) * 9;
 }
@@ -233,35 +349,32 @@ void out_flush (out_t *out)
   out->len = 0;
 }
 
-void out_push (out_t *out, const wchar_t *pw_buf, const int pw_len)
+void out_push (out_t *out, const u32 *pw_buf, const int pw_len)
 {
+  if (out->len > (OUT_BUFSIZ - OUT_RESERVE)) out_flush (out);
+
   for (int i = 0; i < pw_len; i++)
   {
-    out->len += wctomb (out->buf + out->len, pw_buf[i]);
+    out->len += u32_to_utf8 (out->buf + out->len, pw_buf[i]);
   }
 
   out->buf[out->len] = '\n';
 
   out->len++;
-
-  if (out->len >= BUFSIZ - 100)
-  {
-    out_flush (out);
-  }
 }
 
-wchar_t co_to_chr (const wchar_t keymap[KEYMAP_WIDTH][KEYMAP_HEIGHT], const int x, const int y)
+u32 co_to_chr (const u32 keymap[KEYMAP_WIDTH][KEYMAP_HEIGHT], const int x, const int y)
 {
-  if (x < 0) return RC_INVALID;
-  if (y < 0) return RC_INVALID;
+  if (x < 0) return CHR_NONE;
+  if (y < 0) return CHR_NONE;
 
-  if (x > KEYMAP_WIDTH  - 1) return RC_INVALID;
-  if (y > KEYMAP_HEIGHT - 1) return RC_INVALID;
+  if (x > KEYMAP_WIDTH  - 1) return CHR_NONE;
+  if (y > KEYMAP_HEIGHT - 1) return CHR_NONE;
 
   return keymap[x][y];
 }
 
-int chr_to_co (const wchar_t keymap[KEYMAP_WIDTH][KEYMAP_HEIGHT], const wchar_t chr, co_t *co)
+int chr_to_co (const u32 keymap[KEYMAP_WIDTH][KEYMAP_HEIGHT], const u32 chr, co_t *co)
 {
   for (int x = 0; x < KEYMAP_WIDTH; x++)
   {
@@ -280,7 +393,7 @@ int chr_to_co (const wchar_t keymap[KEYMAP_WIDTH][KEYMAP_HEIGHT], const wchar_t 
   return RC_INVALID;
 }
 
-void add_keymap_to_map (wchar_t *map, const wchar_t keymap[KEYMAP_WIDTH][KEYMAP_HEIGHT], const co_t *co, const int user_dist, const int user_dir_south_west, const int user_dir_south, const int user_dir_south_east, const int user_dir_west, const int user_dir_repeat, const int user_dir_east, const int user_dir_north_west, const int user_dir_north, const int user_dir_north_east)
+void add_keymap_to_map (u32 *map, const u32 keymap[KEYMAP_WIDTH][KEYMAP_HEIGHT], const co_t *co, const int user_dist, const int user_dir_south_west, const int user_dir_south, const int user_dir_south_east, const int user_dir_west, const int user_dir_repeat, const int user_dir_east, const int user_dir_north_west, const int user_dir_north, const int user_dir_north_east)
 {
   int dir_pos = 0;
 
@@ -295,15 +408,55 @@ void add_keymap_to_map (wchar_t *map, const wchar_t keymap[KEYMAP_WIDTH][KEYMAP_
   if (user_dir_north_east == 1) map[dir_pos++] = co_to_chr (keymap, co->x + user_dist, co->y - user_dist);
 }
 
-void setup_cs (cs_t *cs, const wchar_t c, const wchar_t keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGHT], const wchar_t keymap_shift[KEYMAP_WIDTH][KEYMAP_HEIGHT], const wchar_t keymap_altgr[KEYMAP_WIDTH][KEYMAP_HEIGHT], const int user_mod_basic, const int user_mod_shift, const int user_mod_altgr, const int user_dir_south_west, const int user_dir_south, const int user_dir_south_east, const int user_dir_west, const int user_dir_repeat, const int user_dir_east, const int user_dir_north_west, const int user_dir_north, const int user_dir_north_east, const int user_dist_min, const int user_dist_max)
+int cs_find (const cs_t *css, const int css_cnt, const u32 c)
 {
+  if (c == CHR_NONE) return CS_NONE;
+
+  for (int i = 0; i < css_cnt; i++)
+  {
+    if (css[i].chr == c) return i;
+  }
+
+  return CS_NONE;
+}
+
+// one table entry per key the keymap carries. the table used to have an entry for every codepoint
+// in the basic multilingual plane, which cost 109 MiB and could not describe a character above it.
+
+int cs_collect (cs_t *css, int css_cnt, const u32 keymap[KEYMAP_WIDTH][KEYMAP_HEIGHT])
+{
+  for (int x = 0; x < KEYMAP_WIDTH; x++)
+  {
+    for (int y = 0; y < KEYMAP_HEIGHT; y++)
+    {
+      const u32 c = keymap[x][y];
+
+      if (c == CHR_NONE) continue;
+
+      if (cs_find (css, css_cnt, c) != CS_NONE) continue;
+
+      css[css_cnt].chr = c;
+
+      css_cnt++;
+    }
+  }
+
+  return css_cnt;
+}
+
+void setup_cs (cs_t *cs, const cs_t *css, const int css_cnt, const u32 c, const u32 keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGHT], const u32 keymap_shift[KEYMAP_WIDTH][KEYMAP_HEIGHT], const u32 keymap_altgr[KEYMAP_WIDTH][KEYMAP_HEIGHT], const int user_mod_basic, const int user_mod_shift, const int user_mod_altgr, const int user_dir_south_west, const int user_dir_south, const int user_dir_south_east, const int user_dir_west, const int user_dir_repeat, const int user_dir_east, const int user_dir_north_west, const int user_dir_north, const int user_dir_north_east, const int user_dist_min, const int user_dist_max)
+{
+  u32 map[DIST_CNT][MOD_CNT][DIR_CNT];
+
   for (int i = 0; i < DIST_CNT; i++)
   {
     for (int j = 0; j < MOD_CNT; j++)
     {
       for (int k = 0; k < DIR_CNT; k++)
       {
-        cs->map[i][j][k] = RC_INVALID;
+        map[i][j][k] = CHR_NONE;
+
+        cs->nxt[i][j][k] = CS_NONE;
       }
     }
   }
@@ -316,9 +469,9 @@ void setup_cs (cs_t *cs, const wchar_t c, const wchar_t keymap_basic[KEYMAP_WIDT
 
   int rc = RC_INVALID;
 
-  if (rc == RC_INVALID) { rc = chr_to_co (keymap_basic, c, &co); cs->is_basic = 1; }
-  if (rc == RC_INVALID) { rc = chr_to_co (keymap_shift, c, &co); cs->is_shift = 1; }
-  if (rc == RC_INVALID) { rc = chr_to_co (keymap_altgr, c, &co); cs->is_altgr = 1; }
+  if (rc == RC_INVALID) { rc = chr_to_co (keymap_basic, c, &co); if (rc == RC_OK) cs->is_basic = 1; }
+  if (rc == RC_INVALID) { rc = chr_to_co (keymap_shift, c, &co); if (rc == RC_OK) cs->is_shift = 1; }
+  if (rc == RC_INVALID) { rc = chr_to_co (keymap_altgr, c, &co); if (rc == RC_OK) cs->is_altgr = 1; }
 
   if (rc == RC_INVALID) return;
 
@@ -326,32 +479,52 @@ void setup_cs (cs_t *cs, const wchar_t c, const wchar_t keymap_basic[KEYMAP_WIDT
   {
     int mod_pos = 0;
 
-    if (user_mod_basic == 1) add_keymap_to_map (cs->map[dist_pos][mod_pos++], keymap_basic, &co, user_dist, user_dir_south_west, user_dir_south, user_dir_south_east, user_dir_west, user_dir_repeat, user_dir_east, user_dir_north_west, user_dir_north, user_dir_north_east);
-    if (user_mod_shift == 1) add_keymap_to_map (cs->map[dist_pos][mod_pos++], keymap_shift, &co, user_dist, user_dir_south_west, user_dir_south, user_dir_south_east, user_dir_west, user_dir_repeat, user_dir_east, user_dir_north_west, user_dir_north, user_dir_north_east);
-    if (user_mod_altgr == 1) add_keymap_to_map (cs->map[dist_pos][mod_pos++], keymap_altgr, &co, user_dist, user_dir_south_west, user_dir_south, user_dir_south_east, user_dir_west, user_dir_repeat, user_dir_east, user_dir_north_west, user_dir_north, user_dir_north_east);
+    if (user_mod_basic == 1) add_keymap_to_map (map[dist_pos][mod_pos++], keymap_basic, &co, user_dist, user_dir_south_west, user_dir_south, user_dir_south_east, user_dir_west, user_dir_repeat, user_dir_east, user_dir_north_west, user_dir_north, user_dir_north_east);
+    if (user_mod_shift == 1) add_keymap_to_map (map[dist_pos][mod_pos++], keymap_shift, &co, user_dist, user_dir_south_west, user_dir_south, user_dir_south_east, user_dir_west, user_dir_repeat, user_dir_east, user_dir_north_west, user_dir_north, user_dir_north_east);
+    if (user_mod_altgr == 1) add_keymap_to_map (map[dist_pos][mod_pos++], keymap_altgr, &co, user_dist, user_dir_south_west, user_dir_south, user_dir_south_east, user_dir_west, user_dir_repeat, user_dir_east, user_dir_north_west, user_dir_north, user_dir_north_east);
+  }
+
+  // a walk steps from one entry to the next by index, so each neighbour is resolved once here
+  // rather than searched for on every candidate
+
+  for (int i = 0; i < DIST_CNT; i++)
+  {
+    for (int j = 0; j < MOD_CNT; j++)
+    {
+      for (int k = 0; k < DIR_CNT; k++)
+      {
+        cs->nxt[i][j][k] = cs_find (css, css_cnt, map[i][j][k]);
+      }
+    }
   }
 }
 
-wchar_t *fgetl (FILE *fp, wchar_t *buf, int len)
+// one line, decoded from UTF-8 into buf. RC_OK means buf holds the line, RC_EOF that the file
+// has no line left, and RC_INVALID that the bytes on the line are not UTF-8. The last two are
+// separate so that a short file and a file in the wrong encoding get different messages.
+
+int fgetl (FILE *fp, u32 *buf, const int len)
 {
-  wchar_t *line_buf = fgetws (buf, len - 1, fp);
+  char tmp[BUFSIZ];
 
-  if (line_buf == NULL) return NULL;
+  const char *line_buf = fgets (tmp, BUFSIZ, fp);
 
-  size_t line_len = wcslen (line_buf);
+  if (line_buf == NULL) return RC_EOF;
 
-  while (line_len)
+  size_t byte_len = strlen (line_buf);
+
+  while (byte_len)
   {
-    if (line_buf[line_len - 1] == '\n')
+    if (line_buf[byte_len - 1] == '\n')
     {
-      line_len--;
+      byte_len--;
 
       continue;
     }
 
-    if (line_buf[line_len - 1] == '\r')
+    if (line_buf[byte_len - 1] == '\r')
     {
-      line_len--;
+      byte_len--;
 
       continue;
     }
@@ -359,9 +532,40 @@ wchar_t *fgetl (FILE *fp, wchar_t *buf, int len)
     break;
   }
 
-  line_buf[line_len] = 0;
+  size_t byte_pos = 0;
 
-  return line_buf;
+  // a byte order mark is not a key, so it does not become one
+
+  if (byte_len >= 3)
+  {
+    if (((u8) line_buf[0] == 0xef) && ((u8) line_buf[1] == 0xbb) && ((u8) line_buf[2] == 0xbf)) byte_pos = 3;
+  }
+
+  int out_len = 0;
+
+  while (byte_pos < byte_len)
+  {
+    // fgets reads at most BUFSIZ - 1 bytes and a decoded line is never longer than the bytes it
+    // came from, so this only guards the terminator written below the loop
+
+    if (out_len > (len - 2)) return RC_INVALID;
+
+    u32 c = 0;
+
+    const int n = utf8_to_u32 ((const u8 *) line_buf + byte_pos, byte_len - byte_pos, &c);
+
+    if (n == RC_INVALID) return RC_INVALID;
+
+    buf[out_len] = c;
+
+    out_len++;
+
+    byte_pos += n;
+  }
+
+  buf[out_len] = 0;
+
+  return RC_OK;
 }
 
 static int check_keymap_line_width(size_t line_len, int total_line_num, const char *section_name, int section_row)
@@ -376,30 +580,38 @@ static int check_keymap_line_width(size_t line_len, int total_line_num, const ch
   return RC_OK;
 }
 
-static wchar_t* read_keymap_line(FILE *fp, wchar_t *tmp_buf, const char *section_name, int section_row)
+static u32* read_keymap_line(FILE *fp, u32 *tmp_buf, const char *section_name, int section_row)
 {
-  wchar_t *line_buf = fgetl(fp, tmp_buf, BUFSIZ);
+  const int rc = fgetl(fp, tmp_buf, BUFSIZ);
 
-  if (line_buf == NULL)
+  if (rc == RC_EOF)
   {
     fprintf(stderr, "ERROR: Keymap file is incomplete. Expected line for %s map, row %d.\n", section_name, section_row);
+    return NULL;
   }
 
-  return line_buf;
+  if (rc == RC_INVALID)
+  {
+    fprintf(stderr, "ERROR: Keymap file is not valid UTF-8, at the %s map, row %d.\n", section_name, section_row);
+    fprintf(stderr, "       Save it as UTF-8, or white-space the characters that are not ASCII.\n");
+    return NULL;
+  }
+
+  return tmp_buf;
 }
 
-int parse_keymap_file (FILE *fp, wchar_t keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGHT], wchar_t keymap_shift[KEYMAP_WIDTH][KEYMAP_HEIGHT], wchar_t keymap_altgr[KEYMAP_WIDTH][KEYMAP_HEIGHT])
+int parse_keymap_file (FILE *fp, u32 keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGHT], u32 keymap_shift[KEYMAP_WIDTH][KEYMAP_HEIGHT], u32 keymap_altgr[KEYMAP_WIDTH][KEYMAP_HEIGHT])
 {
-  wchar_t *tmp = (wchar_t *) calloc (BUFSIZ, sizeof (wchar_t));
+  u32 *tmp = (u32 *) calloc (BUFSIZ, sizeof (u32));
 
   // first 4 lines are basic
 
   for (int y = 0; y < 4; y++)
   {
-    wchar_t *line_buf = read_keymap_line(fp, tmp, "basic", y + 1);
+    u32 *line_buf = read_keymap_line(fp, tmp, "basic", y + 1);
     if (line_buf == NULL) { free(tmp); return RC_INVALID; }
 
-    const size_t line_len = wcslen (line_buf);
+    const size_t line_len = u32_len (line_buf);
 
     if (check_keymap_line_width(line_len, y + 1, "basic", y + 1) != RC_OK)
     {
@@ -409,7 +621,7 @@ int parse_keymap_file (FILE *fp, wchar_t keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGH
 
     for (size_t x = 0; x < line_len; x++)
     {
-      wchar_t c = line_buf[x];
+      u32 c = line_buf[x];
 
       if (c == ' ') continue;
 
@@ -421,10 +633,10 @@ int parse_keymap_file (FILE *fp, wchar_t keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGH
 
   for (int y = 0; y < 4; y++)
   {
-    wchar_t *line_buf = read_keymap_line(fp, tmp, "shift", y + 1);
+    u32 *line_buf = read_keymap_line(fp, tmp, "shift", y + 1);
     if (line_buf == NULL) { free(tmp); return RC_INVALID; }
 
-    const size_t line_len = wcslen (line_buf);
+    const size_t line_len = u32_len (line_buf);
 
     if (check_keymap_line_width(line_len, y + 5, "shift", y + 1) != RC_OK)
     {
@@ -434,7 +646,7 @@ int parse_keymap_file (FILE *fp, wchar_t keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGH
 
     for (size_t x = 0; x < line_len; x++)
     {
-      wchar_t c = line_buf[x];
+      u32 c = line_buf[x];
 
       if (c == ' ') continue;
 
@@ -446,10 +658,10 @@ int parse_keymap_file (FILE *fp, wchar_t keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGH
 
   for (int y = 0; y < 4; y++)
   {
-    wchar_t *line_buf = read_keymap_line(fp, tmp, "altgr", y + 1);
+    u32 *line_buf = read_keymap_line(fp, tmp, "altgr", y + 1);
     if (line_buf == NULL) { free(tmp); return RC_INVALID; }
 
-    const size_t line_len = wcslen (line_buf);
+    const size_t line_len = u32_len (line_buf);
 
     if (check_keymap_line_width(line_len, y + 9, "altgr", y + 1) != RC_OK)
     {
@@ -459,7 +671,7 @@ int parse_keymap_file (FILE *fp, wchar_t keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGH
 
     for (size_t x = 0; x < line_len; x++)
     {
-      wchar_t c = line_buf[x];
+      u32 c = line_buf[x];
 
       if (c == ' ') continue;
 
@@ -472,30 +684,50 @@ int parse_keymap_file (FILE *fp, wchar_t keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGH
   return RC_OK;
 }
 
-int parse_basechars_file (FILE *fp, wchar_t *basechars_buf, int *basechars_cnt, const cs_t *css, const int user_mod_basic, const int user_mod_shift, const int user_mod_altgr)
+int parse_basechars_file (FILE *fp, u32 *basechars_buf, int *basechars_cs, int *basechars_cnt, const cs_t *css, const int css_cnt, const int user_mod_basic, const int user_mod_shift, const int user_mod_altgr)
 {
-  wchar_t *tmp = (wchar_t *) calloc (BUFSIZ, sizeof (wchar_t));
+  u32 *tmp = (u32 *) calloc (BUFSIZ, sizeof (u32));
 
-  wchar_t *line_buf = fgetl (fp, tmp, BUFSIZ);
+  if (tmp == NULL) return RC_INVALID;
 
-  if (line_buf == NULL) return RC_INVALID;
+  const int rc = fgetl (fp, tmp, BUFSIZ);
+
+  if (rc == RC_INVALID)
+  {
+    fprintf (stderr, "ERROR: Base-character file is not valid UTF-8.\n");
+
+    free (tmp);
+
+    return RC_INVALID;
+  }
+
+  if (rc == RC_EOF) { free (tmp); return RC_INVALID; }
 
   int basechars_tmp = 0;
 
-  const size_t line_len = wcslen (line_buf);
+  const size_t line_len = u32_len (tmp);
 
-  if (line_len <    1) return RC_INVALID;
-  if (line_len > 1023) return RC_INVALID;
+  if (line_len <    1) { free (tmp); return RC_INVALID; }
+  if (line_len > 1023) { free (tmp); return RC_INVALID; }
 
   for (size_t line_pos = 0; line_pos < line_len; line_pos++)
   {
-    wchar_t c = line_buf[line_pos];
+    u32 c = tmp[line_pos];
 
-    if ((user_mod_basic == 0) && (css[c].is_basic == 1)) continue;
-    if ((user_mod_shift == 0) && (css[c].is_shift == 1)) continue;
-    if ((user_mod_altgr == 0) && (css[c].is_altgr == 1)) continue;
+    // a character the keymap does not carry has no entry, and no modifier to be filtered on. it
+    // stays a basechar, as it did when every codepoint had an all empty entry of its own.
+
+    const int cs_pos = cs_find (css, css_cnt, c);
+
+    if (cs_pos != CS_NONE)
+    {
+      if ((user_mod_basic == 0) && (css[cs_pos].is_basic == 1)) continue;
+      if ((user_mod_shift == 0) && (css[cs_pos].is_shift == 1)) continue;
+      if ((user_mod_altgr == 0) && (css[cs_pos].is_altgr == 1)) continue;
+    }
 
     basechars_buf[basechars_tmp] = c;
+    basechars_cs[basechars_tmp]  = cs_pos;
 
     basechars_tmp++;
   }
@@ -509,17 +741,29 @@ int parse_basechars_file (FILE *fp, wchar_t *basechars_buf, int *basechars_cnt, 
 
 int parse_routes_file (FILE *fp, route_t *routes_buf)
 {
-  wchar_t *tmp = (wchar_t *) calloc (BUFSIZ, sizeof (wchar_t));
+  u32 *tmp = (u32 *) calloc (BUFSIZ, sizeof (u32));
 
   int routes_cnt = 0;
 
-  while (!feof (fp))
+  while (feof (fp) == 0)
   {
-    wchar_t *line_buf = fgetl (fp, tmp, BUFSIZ);
+    const int rc = fgetl (fp, tmp, BUFSIZ);
 
-    if (line_buf == NULL) continue;
+    if (rc == RC_EOF) break;
 
-    const size_t line_len = wcslen (line_buf);
+    // a route file that is not UTF-8 is refused outright rather than half read, so the caller
+    // reports that no routes load
+
+    if (rc == RC_INVALID)
+    {
+      fprintf (stderr, "ERROR: Route file is not valid UTF-8.\n");
+
+      free (tmp);
+
+      return 0;
+    }
+
+    const size_t line_len = u32_len (tmp);
 
     if (line_len < ROUTE_LENGTH_MIN) continue;
     if (line_len > ROUTE_LENGTH_MAX) continue;
@@ -530,7 +774,7 @@ int parse_routes_file (FILE *fp, route_t *routes_buf)
 
     for (size_t line_pos = 0; line_pos < line_len; line_pos++)
     {
-      wchar_t c = line_buf[line_pos];
+      u32 c = tmp[line_pos];
 
       const int repeat = hex_convert (c);
 
@@ -550,7 +794,7 @@ int parse_routes_file (FILE *fp, route_t *routes_buf)
   return routes_cnt;
 }
 
-int process_route (const cs_t *css, const wchar_t root, const u64 s, const u64 dist_cnt, const u64 mod_cnt, const u64 dir_cnt, const route_t *route_buf, wchar_t *out_buf, int *out_len)
+int process_route (const cs_t *css, const int root_cs, const u32 root, const u64 s, const u64 dist_cnt, const u64 mod_cnt, const u64 dir_cnt, const route_t *route_buf, u32 *out_buf, int *out_len)
 {
   const u64 selection_cnt = dist_cnt * mod_cnt * dir_cnt;
 
@@ -560,7 +804,7 @@ int process_route (const cs_t *css, const wchar_t root, const u64 s, const u64 d
 
   out_pos++;
 
-  const cs_t *cs = css + root;
+  int cs_pos = root_cs;
 
   u64 left = s;
 
@@ -568,6 +812,11 @@ int process_route (const cs_t *css, const wchar_t root, const u64 s, const u64 d
 
   for (int route_pos = 0; route_pos < route_buf->changes; route_pos++)
   {
+    // a root the keymap does not carry has no entry to step from, and every later step lands on
+    // an entry that was already checked
+
+    if (cs_pos == CS_NONE) return RC_INVALID;
+
     const u64 m1 = left % selection_cnt;
 
     if (prev_direction == m1) return RC_INVALID;
@@ -580,15 +829,15 @@ int process_route (const cs_t *css, const wchar_t root, const u64 s, const u64 d
 
     for (int r = 0; r < route_buf->repeat[route_pos]; r++)
     {
-      const wchar_t c = cs->map[m_distance][m_modifier][m_direction];
+      const int nxt = css[cs_pos].nxt[m_distance][m_modifier][m_direction];
 
-      if (c == RC_INVALID) return RC_INVALID;
+      if (nxt == CS_NONE) return RC_INVALID;
 
-      out_buf[out_pos] = c;
+      out_buf[out_pos] = css[nxt].chr;
 
       out_pos++;
 
-      cs = css + c;
+      cs_pos = nxt;
     }
 
     left /= selection_cnt;
@@ -603,8 +852,6 @@ int process_route (const cs_t *css, const wchar_t root, const u64 s, const u64 d
 
 int main (int argc, char *argv[])
 {
-  setlocale (LC_ALL, "");
-
   /* usage */
 
   int   version               = 0;
@@ -678,7 +925,7 @@ int main (int argc, char *argv[])
 
   int c;
 
-  while ((c = getopt_long (argc, argv, "Vho:b:s:a:z1:2:3:4:5:6:7:8:9:c:0n:x:", long_options, &option_index)) != -1)
+  while ((c = getopt_long (argc, argv, "Vho:b:s:a:z1:2:3:4:5:6:7:8:9:c0n:x:", long_options, &option_index)) != -1)
   {
     switch (c)
     {
@@ -790,7 +1037,7 @@ int main (int argc, char *argv[])
 
   if (version)
   {
-    printf ("v%4.02f\n", (double) VERSION_BIN / 100);
+    printf ("v%s\n", VERSION_TAG);
 
     return (-1);
   }
@@ -809,8 +1056,6 @@ int main (int argc, char *argv[])
   setmode (fileno (stderr), O_BINARY);
   #endif
 
-  setlocale(LC_ALL, "");
-
   FILE *fp_out = stdout;
 
   if (output_file)
@@ -827,6 +1072,13 @@ int main (int argc, char *argv[])
 
   out_t *out = (out_t *) malloc (sizeof (out_t));
 
+  if (out == NULL)
+  {
+    fprintf (stderr, "Out of memory\n");
+
+    return -1;
+  }
+
   out->fp  = fp_out;
   out->len = 0;
 
@@ -838,17 +1090,17 @@ int main (int argc, char *argv[])
 
   // init keymaps
 
-  wchar_t keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGHT];
-  wchar_t keymap_shift[KEYMAP_WIDTH][KEYMAP_HEIGHT];
-  wchar_t keymap_altgr[KEYMAP_WIDTH][KEYMAP_HEIGHT];
+  u32 keymap_basic[KEYMAP_WIDTH][KEYMAP_HEIGHT];
+  u32 keymap_shift[KEYMAP_WIDTH][KEYMAP_HEIGHT];
+  u32 keymap_altgr[KEYMAP_WIDTH][KEYMAP_HEIGHT];
 
   for (int x = 0; x < KEYMAP_WIDTH; x++)
   {
     for (int y = 0; y < KEYMAP_HEIGHT; y++)
     {
-      keymap_basic[x][y] = RC_INVALID;
-      keymap_shift[x][y] = RC_INVALID;
-      keymap_altgr[x][y] = RC_INVALID;
+      keymap_basic[x][y] = CHR_NONE;
+      keymap_shift[x][y] = CHR_NONE;
+      keymap_altgr[x][y] = CHR_NONE;
     }
   }
 
@@ -885,18 +1137,39 @@ int main (int argc, char *argv[])
 
   // init charset
 
-  cs_t *css = (cs_t *) calloc (0x10000, sizeof (cs_t));
+  cs_t *css = (cs_t *) calloc (CS_CNT_MAX, sizeof (cs_t));
 
-  for (int c = 0; c < 0x10000; c++)
+  if (css == NULL)
   {
-    setup_cs (css + c, c, keymap_basic, keymap_shift, keymap_altgr, user_mod_basic, user_mod_shift, user_mod_altgr, user_dir_south_west, user_dir_south, user_dir_south_east, user_dir_west, user_dir_repeat, user_dir_east, user_dir_north_west, user_dir_north, user_dir_north_east, user_dist_min, user_dist_max);
+    fprintf (stderr, "Out of memory\n");
+
+    return -1;
+  }
+
+  int css_cnt = 0;
+
+  css_cnt = cs_collect (css, css_cnt, keymap_basic);
+  css_cnt = cs_collect (css, css_cnt, keymap_shift);
+  css_cnt = cs_collect (css, css_cnt, keymap_altgr);
+
+  for (int c = 0; c < css_cnt; c++)
+  {
+    setup_cs (css + c, css, css_cnt, css[c].chr, keymap_basic, keymap_shift, keymap_altgr, user_mod_basic, user_mod_shift, user_mod_altgr, user_dir_south_west, user_dir_south, user_dir_south_east, user_dir_west, user_dir_repeat, user_dir_east, user_dir_north_west, user_dir_north, user_dir_north_east, user_dist_min, user_dist_max);
   }
 
   // init basechars
 
   int basechars_cnt = 0;
 
-  wchar_t *basechars_buf = (wchar_t *) calloc (0x10000, sizeof (wchar_t));
+  u32 *basechars_buf = (u32 *) calloc (0x10000, sizeof (u32));
+  int *basechars_cs  = (int *) calloc (0x10000, sizeof (int));
+
+  if ((basechars_buf == NULL) || (basechars_cs == NULL))
+  {
+    fprintf (stderr, "Out of memory\n");
+
+    return -1;
+  }
 
   fp = fopen (basechar_file, "r");
 
@@ -918,7 +1191,7 @@ int main (int argc, char *argv[])
 
   rewind (fp);
 
-  rc = parse_basechars_file (fp, basechars_buf, &basechars_cnt, css, user_mod_basic, user_mod_shift, user_mod_altgr);
+  rc = parse_basechars_file (fp, basechars_buf, basechars_cs, &basechars_cnt, css, css_cnt, user_mod_basic, user_mod_shift, user_mod_altgr);
 
   if (rc == -1)
   {
@@ -944,7 +1217,21 @@ int main (int argc, char *argv[])
 
   rewind (fp);
 
+  if (routes_pot < 1)
+  {
+    fprintf (stderr, "%s: no routes load\n", routes_file);
+
+    return -1;
+  }
+
   route_t *routes_buf = (route_t *) calloc (routes_pot, sizeof (route_t));
+
+  if (routes_buf == NULL)
+  {
+    fprintf (stderr, "Out of memory\n");
+
+    return -1;
+  }
 
   int routes_cnt = parse_routes_file (fp, routes_buf);
 
@@ -987,11 +1274,39 @@ int main (int argc, char *argv[])
                        + user_dir_north
                        + user_dir_north_east;
 
+    const u64 per_change = dist_cnt * mod_cnt * dir_cnt;
+
     u64 keyspace = basechars_cnt;
+
+    int overflow = 0;
 
     for (int i = 0; i < route_buf->changes; i++)
     {
-      keyspace *= dist_cnt * mod_cnt * dir_cnt;
+      if (per_change == 0)
+      {
+        keyspace = 0;
+
+        break;
+      }
+
+      // the product used to be left to wrap, and a 32 segment route with the default options
+      // wrapped to exactly zero, so the route generated nothing and the run still succeeded
+
+      if (keyspace > (UINT64_MAX / per_change))
+      {
+        overflow = 1;
+
+        break;
+      }
+
+      keyspace *= per_change;
+    }
+
+    if (overflow == 1)
+    {
+      fprintf (stderr, "Route %d of %d describes more candidates than fit in 64 bits, skipped\n", routes_pos + 1, routes_cnt);
+
+      continue;
     }
 
     for (u64 k = 0; k < keyspace; k++)
@@ -999,13 +1314,13 @@ int main (int argc, char *argv[])
       const u64 km = k % basechars_cnt;
       const u64 kd = k / basechars_cnt;
 
-      const wchar_t c = basechars_buf[km];
+      const u32 c = basechars_buf[km];
 
-      wchar_t pw_buf[100];
+      u32 pw_buf[PW_LEN_MAX + 1];
 
       int pw_len = 0;
 
-      const int rc = process_route (css, c, kd, dist_cnt, mod_cnt, dir_cnt, route_buf, pw_buf, &pw_len);
+      const int rc = process_route (css, basechars_cs[km], c, kd, dist_cnt, mod_cnt, dir_cnt, route_buf, pw_buf, &pw_len);
 
       if (rc == RC_INVALID) continue;
 
@@ -1016,7 +1331,8 @@ int main (int argc, char *argv[])
   out_flush (out);
 
   free (routes_buf);
-  free(basechars_buf);
+  free (basechars_cs);
+  free (basechars_buf);
   free (css);
   free (out);
 
