@@ -144,7 +144,7 @@ Some rules:
 * Listed characters that are not also listed in the selected keymap will be ignored silently.
 * Ordering of the configuration is unchanged.
 
-That last rule is the one to watch on a non-Latin layout. "full.base" holds ASCII and Latin-1, so running it against a Russian or Arabic keymap silently leaves you with almost nothing to start a walk from. Every generated layout therefore ships a base-character file beside it, holding exactly the characters that layout can reach:
+That last rule is the one to watch on a non-Latin layout. "full.base" holds ASCII and most of Latin-1, so running it against a Russian or Arabic keymap silently leaves you with almost nothing to start a walk from. Every layout in the keymaps folder therefore ships a base-character file beside it, holding exactly the characters that layout can reach:
 
 ```
 $ ./kwp -0 basechars/ru.base keymaps/ru.keymap routes/4-to-4-exhaustive.route | head -3
@@ -152,6 +152,15 @@ $ ./kwp -0 basechars/ru.base keymaps/ru.keymap routes/4-to-4-exhaustive.route | 
 5квч
 6еас
 ```
+
+Each of those files is the output of "tools/kwp2base.py" on the keymap beside it, so a keymap you write yourself gets one the same way:
+
+```
+$ ./tools/kwp2base.py keymaps/en-us.keymap
+`1234567890-=qwertyuiop[]\asdfghjkl;'zxcvbnm,./~!@#$%^&*()_+QWERTYUIOP{}|ASDFGHJKL:"ZXCVBNM<>?
+```
+
+On a Latin layout that is usually the same set of walks you already got from "full.base", because the characters it lists that the keymap cannot reach are ignored. The difference is the keys "full.base" leaves out. A Danish or Finnish keyboard reaches the currency sign, the acute accent, the diaeresis and the one-half fraction, and "pt.keymap" reaches the cruzeiro sign. A walk starting on any of those only appears with the layout's own file.
 
 ## Routes
 

@@ -1,3 +1,19 @@
+* changes v2.0.0 -> v2.1.0
+
+##
+## Keyboard Layouts
+##
+
+- Added a base-character file for the 13 keymaps that shipped without one: colemak, de, dk, dvorak,
+  en-gb, en-us, es, fi, fr, it_mac, jp, pt and sv. Every layout in the keymaps folder has one now,
+  so no run has to fall back on full.base
+- Added tools/kwp2base.py, which writes the base-character file for a keymap. Every file in the
+  basechars folder is its output on the keymap beside it, the 55 that shipped with v2.0.0 included
+- Fixed keymaps/sv.keymap, which was missing the dead acute and dead diaeresis of its top two rows
+  and the one-half and currency signs of its shift block, and keymaps/fi.keymap, which was missing
+  the euro sign on alt-gr 4 and the micro sign on alt-gr m. Swedish and Finnish are the same
+  physical keyboard and the two keymaps are identical now
+
 * changes v1.00 -> v2.0.0
 
 ##

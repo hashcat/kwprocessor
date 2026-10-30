@@ -16,7 +16,7 @@
  * License.....: MIT
  */
 
-#define VERSION_TAG           "2.0.0"
+#define VERSION_TAG           "2.1.0"
 
 #define DIST_CNT              16
 #define MOD_CNT               3
